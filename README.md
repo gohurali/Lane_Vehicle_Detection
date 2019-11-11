@@ -1,6 +1,9 @@
-# Vehicle and Lane Detection
-## CSS 487 Computer Vision Final Project
-
+<h1>
+<p align="center">
+Vehicle and Lane Detection
+<br>
+<font size="5"></font>
+</h1>
 Taking steps toward autonomous vehicles
 
 Helpful Links:  

@@ -4,6 +4,9 @@ Vehicle and Lane Detection
 <br>
 <font size="5"></font>
 </h1>
+
+#### CSS 487: Computer Vision Final Project
+
 Taking steps toward autonomous vehicles
 
 Helpful Links:  

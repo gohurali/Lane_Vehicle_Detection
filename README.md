@@ -10,7 +10,7 @@ Vehicle and Lane Detection
 Taking steps toward autonomous vehicles
 
 **Hough Transform for Lane Detection**
-![demo](outputs/detected_lanes_py.gif "demo")
+![demo](outputs/detected_lanes_py_3.gif "demo")
 
 Helpful Links:  
 https://docs.opencv.org/2.4/doc/tutorials/core/mat_the_basic_image_container/mat_the_basic_image_container.html  

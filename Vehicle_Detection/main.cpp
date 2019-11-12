@@ -1,51 +1,10 @@
 #include "feature_extractor.h"
-#include <iostream>
-void show_image(cv::Mat& img, int x_window, int y_window, int delay) {
-	cv::namedWindow("output", cv::WINDOW_NORMAL);
-	cv::resizeWindow("output", img.cols / x_window, img.rows / y_window);
-	cv::imshow("output", img);
-	cv::waitKey(delay);
-}
 
 int main() {
 	bool debug = false;
-
-	cv::Mat input = cv::imread("images/lanes_1.jpg");
-	if (debug) {
-		//printf("Input img size (r,c) %i x %i\n", input.rows, input.cols);
-		show_image(input, 1, 1, 5000);
-	}
-	cv::Mat grey_im;
-	cv::cvtColor(input, grey_im, cv::COLOR_BGR2GRAY);
-	//show_image(grey_im, 1, 1, 5000);
-
-	cv::Mat hls_im;
-	cv::cvtColor(input, hls_im, cv::COLOR_BGR2HLS);
-	//show_image(hls_im, 1, 1, 5000);
-
 	FeatureExtractor fe;
-
-	std::vector<int> y_lower_b = { 10, 0, 100 };
-	std::vector<int> y_upper_b = { 40, 255, 255 };
-	cv::Mat yellow_mask = fe.mask_color(hls_im, y_lower_b, y_upper_b);
-	//show_image(yellow_mask, 1, 1, 5000);
-
-	std::vector<int> w_lower_b = { 0, 200, 0 };
-	std::vector<int> w_upper_b = { 200, 255, 255 };
-	cv::Mat white_mask = fe.mask_color(hls_im, w_lower_b, w_upper_b);
-	//show_image(white_mask, 1, 1, 5000);
-
-	// Combine
-	cv::Mat combined = fe.combine_mask(yellow_mask, white_mask);
-	show_image(combined, 1, 1, 5000);
-
-	//Blur
-	//cv::Mat blurred;
-	//cv::GaussianBlur(hls_im, blurred, {15,15}, 3, 3);
-
-	//cv::Mat edges;
-	//cv::Canny(blurred, edges, 100,150);
-	//show_image(edges, 1, 1, 5000);
-
+	cv::Mat input = cv::imread("images/lanes_1.jpg");
+	cv::Mat output = fe.lane_detect(input);
+	fe.show_image(output, 1, 1, 5000);
 	return 0;
 }

@@ -177,7 +177,6 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input) {
 			r_max_pt = cv::Point(x_pt, y_pt);
 		}
 	}
-
 	cv::Vec4i top_line;
 	top_line[0] = l_max_pt.x;
 	top_line[1] = l_max_pt.y;

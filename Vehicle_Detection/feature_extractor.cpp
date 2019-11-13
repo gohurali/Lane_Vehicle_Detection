@@ -78,23 +78,22 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
 		hough_lines.push_back(pts);
-		std::cout << "xy  = " << x1y1 << std::endl;
-		std::cout << "xy  = " << x2y2 << std::endl;
-		cv::line(output, x1y1,x2y2, cv::Scalar(0, 0, 255));
+		//cv::line(output, x1y1,x2y2, cv::Scalar(0, 0, 255));
 	}
-
-	std::cout << "before finding highest point function \n";
 	// Look for highest point
 	cv::Vec4i top_line = this->find_highest_point(hough_lines);
-	cv::line(output, cv::Point(top_line[0], top_line[1]), cv::Point(top_line[2], top_line[3]), cv::Scalar(0, 0, 255));
+	cv::line(output, cv::Point(top_line[0], top_line[1]), cv::Point(top_line[2], top_line[3]), cv::Scalar(0, 0, 255),2);
+
+	cv::Vec4i min_points = this->find_lowest_point(hough_lines);
+	cv::line(output, cv::Point(min_points[0], min_points[1]), cv::Point(top_line[0], top_line[1]), cv::Scalar(0, 0, 255),2);
+	cv::line(output, cv::Point(min_points[2], min_points[3]), cv::Point(top_line[2], top_line[3]), cv::Scalar(0, 0, 255),2);
 
 	return output;
 }
 
-cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input) {
+cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input) {
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
-	std::cout << "in finding highest point function \n";
 	for (int i = 0; i < lines.rows; i++) {
 		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
 		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
@@ -104,62 +103,71 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input) {
 		points.push_back(x2y2);
 	}
 
-	cv::Mat points_matrix(points.size(), 2, CV_32S);
-	std::cout << "ROWS = " << points_matrix.rows << std::endl;
-	std::cout << "COLS = " << points_matrix.cols << std::endl;
+	cv::Mat points_matrix(points.size(), 2, CV_32S);;
 	for (int i = 0; i < points.size(); i++) {
-		//std::cout << points[i] << std::endl;
-		//std::cout << points[i].x << std::endl;
-		//std::cout << points[i].y << std::endl;
 		points_matrix.at<int>(i, 0) = points[i].x;
 		points_matrix.at<int>(i, 1) = points[i].y;
 	}
 
-	//std::cout << points_matrix << std::endl;
-
-	cv::Mat x_vals = points_matrix.col(0);
-	std::cout << x_vals << std::endl;
-
-	cv::Mat1i sorted_points_idx;
-	cv::sortIdx(x_vals, sorted_points_idx, CV_SORT_EVERY_COLUMN + CV_SORT_ASCENDING);
-	cv::sort(x_vals, x_vals, CV_SORT_EVERY_COLUMN + CV_SORT_ASCENDING);
-
-	cv::Mat sorted_points_matrix(points.size(), 2, CV_32S);
-	std::cout << std::endl;
+	cv::Point l_min_pt(points_matrix.at<int>(0, 0), points_matrix.at<int>(0, 1));
+	cv::Point r_min_pt(points_matrix.at<int>(1, 0), points_matrix.at<int>(1, 1));
 	for (int i = 0; i < points_matrix.rows; i++) {
-		points_matrix.row(sorted_points_idx(i)).copyTo(sorted_points_matrix.row(i));
-		
-		//points_matrix.at<int>(i, 0) = sorted_points_matrix.at<int>(i);
+		int x_pt = points_matrix.at<int>(i, 0);
+		int y_pt = points_matrix.at<int>(i, 1);
+
+		if (x_pt < 650 && y_pt > l_min_pt.y) {
+			l_min_pt = cv::Point(x_pt, y_pt);
+		}
+		else if (x_pt > 650 && y_pt > r_min_pt.y) {
+			r_min_pt = cv::Point(x_pt, y_pt);
+		}
+	}
+	cv::Vec4i top_line;
+	top_line[0] = l_min_pt.x;
+	top_line[1] = l_min_pt.y;
+	top_line[2] = r_min_pt.x;
+	top_line[3] = r_min_pt.y;
+	return top_line;
+
+}
+
+cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input) {
+	cv::Mat lines(input);
+	std::vector<cv::Point> points;
+	for (int i = 0; i < lines.rows; i++) {
+		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
+		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
+		cv::Point x1y1(pts[0], pts[1]);
+		cv::Point x2y2(pts[2], pts[3]);
+		points.push_back(x1y1);
+		points.push_back(x2y2);
 	}
 
-	std::cout << "Sorted POINTS \n";
-	std::cout << sorted_points_matrix << std::endl;
+	cv::Mat points_matrix(points.size(), 2, CV_32S);;
+	for (int i = 0; i < points.size(); i++) {
+		points_matrix.at<int>(i, 0) = points[i].x;
+		points_matrix.at<int>(i, 1) = points[i].y;
+	}
 
 	cv::Point l_max_pt(points_matrix.at<int>(0,0), points_matrix.at<int>(0, 1));
 	cv::Point r_max_pt(points_matrix.at<int>(1, 0), points_matrix.at<int>(1, 1));
-	std::cout << l_max_pt << " , " << r_max_pt << std::endl;
 	for (int i = 0; i < points_matrix.rows; i++) {
 		int x_pt = points_matrix.at<int>(i, 0);
 		int y_pt = points_matrix.at<int>(i, 1);
 		
 		if (x_pt < 650 && y_pt < l_max_pt.y) {
-			std::cout << "LEFT X = " << x_pt << " ---- Y = " << y_pt << std::endl;
 			l_max_pt = cv::Point(x_pt, y_pt);
 		}
 		else if (x_pt > 650 && y_pt < r_max_pt.y) {
-			std::cout << "RIGHT X = " << x_pt << " ---- Y = " << y_pt << std::endl;
 			r_max_pt = cv::Point(x_pt, y_pt);
 		}
 	}
-	std::cout << l_max_pt << " , " << r_max_pt << std::endl;
 
 	cv::Vec4i top_line;
 	top_line[0] = l_max_pt.x;
 	top_line[1] = l_max_pt.y;
 	top_line[2] = r_max_pt.x;
 	top_line[3] = r_max_pt.y;
-
-
 	return top_line;
 }
 

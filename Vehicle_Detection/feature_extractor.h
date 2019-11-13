@@ -21,6 +21,7 @@ public:
 	);
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
 	cv::Mat lane_detect(cv::Mat&);
+	cv::Vec4i find_lowest_point(std::vector<cv::Vec4i>&);
 	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&);
 	void show_image(cv::Mat&,int,int,int);
 };

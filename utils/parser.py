@@ -6,7 +6,7 @@ import argparse         # Command line arguement seeting
 import time             # Getting current time for naming convention
 import numpy as np      # Python float to Numpy float conversion
 from tqdm import tqdm   # Progress bar for visualizing number of frames
-
+import imageio          # Create gifs from list of images
 """
 Python script for frame extraction from video files.
 
@@ -33,6 +33,9 @@ parser = argparse.ArgumentParser(description='Process and Cut Video Frames')
 parser.add_argument('--input_video', help='name of the directory that the images will be stored in')
 parser.add_argument('--output_dir', help='the video path in filesystem')
 parser.add_argument('--seconds_delay',help='number of seconds delayed before frame is saved')
+parser.add_argument('--make-gif',action='store_true',help='create gif image video')
+parser.add_argument('--frames_path',help='location to image frames to create gif')
+parser.add_argument('--output_loc',help='location where gif will be located')
 args = parser.parse_args()
 
 def get_current_time():
@@ -143,13 +146,26 @@ def parse_video(args, frame_est):
     vid_cap.release()
     cv2.destroyAllWindows()
 
+def make_gif(dir_loc):
+    images = []
+    for f in os.listdir(dir_loc):
+        im = imageio.imread(dir_loc+f)
+        images.append(im)
+    minute, hour, day, month, year = get_current_time()
+    im_name = str(year) + str(month) + str(day) + str(hour) + str(minute) + '.gif'
+    imageio.mimsave(args.output_loc+im_name,images)
+    print('-- Saved gif at location [' +args.output_loc+'] --' )
+
 def main():
-    duration, frame_count = get_info(args)
-    if(float(args.seconds_delay) == 0):
-        parse_all_frames(args, frame_count)
+    if(args.make_gif):
+        make_gif(args.frames_path)
     else:
-        frame_est = frame_estimation(args, duration)
-        parse_video(args, frame_est)
+        duration, frame_count = get_info(args)
+        if(float(args.seconds_delay) == 0):
+            parse_all_frames(args, frame_count)
+        else:
+            frame_est = frame_estimation(args, duration)
+            parse_video(args, frame_est)
 
 if __name__ == '__main__':
     main()

@@ -124,8 +124,8 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input) {
 		points_matrix.at<int>(i, 1) = points[i].y;
 	}
 
-	cv::Point l_min_pt(points_matrix.at<int>(0, 0), points_matrix.at<int>(0, 1));
-	cv::Point r_min_pt(points_matrix.at<int>(1, 0), points_matrix.at<int>(1, 1));
+	cv::Point l_min_pt(points_matrix.at<int>(0, 0), 0);
+	cv::Point r_min_pt(points_matrix.at<int>(1, 0), 0);
 	for (int i = 0; i < points_matrix.rows; i++) {
 		int x_pt = points_matrix.at<int>(i, 0);
 		int y_pt = points_matrix.at<int>(i, 1);
@@ -164,8 +164,8 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input) {
 		points_matrix.at<int>(i, 1) = points[i].y;
 	}
 
-	cv::Point l_max_pt(points_matrix.at<int>(0,0), points_matrix.at<int>(0, 1));
-	cv::Point r_max_pt(points_matrix.at<int>(1, 0), points_matrix.at<int>(1, 1));
+	cv::Point l_max_pt(points_matrix.at<int>(0,0), 10000);
+	cv::Point r_max_pt(points_matrix.at<int>(1, 0), 10000);
 	for (int i = 0; i < points_matrix.rows; i++) {
 		int x_pt = points_matrix.at<int>(i, 0);
 		int y_pt = points_matrix.at<int>(i, 1);

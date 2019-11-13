@@ -4,6 +4,7 @@
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
+#include <opencv2/core/core_c.h>
 #include <vector>
 #include <stdio.h>
 #include <iostream>
@@ -20,6 +21,7 @@ public:
 	);
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
 	cv::Mat lane_detect(cv::Mat&);
+	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&);
 	void show_image(cv::Mat&,int,int,int);
 };
 

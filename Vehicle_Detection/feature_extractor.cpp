@@ -88,6 +88,21 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	cv::line(output, cv::Point(min_points[0], min_points[1]), cv::Point(top_line[0], top_line[1]), cv::Scalar(0, 0, 255),2);
 	cv::line(output, cv::Point(min_points[2], min_points[3]), cv::Point(top_line[2], top_line[3]), cv::Scalar(0, 0, 255),2);
 
+	cv::Point corners[1][4];
+	corners[0][0] = cv::Point(min_points[0], min_points[1]);
+	corners[0][1] = cv::Point(min_points[2], min_points[3]); 
+	corners[0][2] = cv::Point(top_line[2], top_line[3]); 
+	corners[0][3] = cv::Point(top_line[0], top_line[1]);
+
+	const cv::Point* corner_list[1] = { corners[0] };
+	int num_points = 4;
+	int num_polygons = 1;
+	cv::Mat overlay;
+	output.copyTo(overlay);
+	cv::fillPoly(overlay, corner_list, &num_points, num_polygons, cv::Scalar(255));
+	double alpha = 0.3;
+	
+	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
 	return output;
 }
 

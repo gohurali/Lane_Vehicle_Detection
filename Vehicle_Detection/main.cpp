@@ -6,7 +6,8 @@
 int main() {
 	bool debug = false;
 	
-	std::string path = "../datasets/udacity_challenge_video/challenge_frames/";// 20191111146_1.png";
+	std::string path = "../datasets/udacity_challenge_video/challenge_frames/";
+	//std::string path = "../datasets/udacity_challenge_video/challenge_frames/20191111146_1.png";
 	FeatureExtractor fe;
 	int num = 0;
 	for (const auto& entry : std::filesystem::directory_iterator(path)) {
@@ -19,9 +20,9 @@ int main() {
 		num++;
 	}
 
-	/*cv::Mat input = cv::imread(path);
-	cv::Mat output = fe.lane_detect(input);
-	fe.show_image(output, 1, 1, 5000);*/
+	//cv::Mat input = cv::imread(path);
+	//cv::Mat output = fe.lane_detect(input);
+	//fe.show_image(output, 1, 1, 20000);
 
 
 	return 0;

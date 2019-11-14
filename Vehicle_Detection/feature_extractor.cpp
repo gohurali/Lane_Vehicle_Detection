@@ -84,13 +84,34 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	cv::Vec4i top_line = this->find_highest_point(hough_lines);
 	cv::line(output, cv::Point(top_line[0], top_line[1]), cv::Point(top_line[2], top_line[3]), cv::Scalar(0, 0, 255),2);
 
+	// Look for the lowest point
 	cv::Vec4i min_points = this->find_lowest_point(hough_lines);
-	cv::line(output, cv::Point(min_points[0], min_points[1]), cv::Point(top_line[0], top_line[1]), cv::Scalar(0, 0, 255),2);
-	cv::line(output, cv::Point(min_points[2], min_points[3]), cv::Point(top_line[2], top_line[3]), cv::Scalar(0, 0, 255),2);
+
+	// Extrapolate the right lane
+	cv::Vec4i current_right_lane = { min_points[2],min_points[3],top_line[2],top_line[3]};
+	std::cout << " Running \n";
+	cv::Point adjusted_right_min = this->extrapolate_line(current_right_lane, min_points[1]);
+	std::cout << adjusted_right_min << std::endl;
+
+	cv::line(
+		output, 
+		cv::Point(min_points[0], min_points[1]), 
+		cv::Point(top_line[0], top_line[1]), 
+		cv::Scalar(0, 0, 255),
+		2
+	);
+
+	cv::line(
+		output, 
+		cv::Point(adjusted_right_min.x, adjusted_right_min.y), 
+		cv::Point(top_line[2], top_line[3]), 
+		cv::Scalar(0, 0, 255),
+		2
+	);
 
 	cv::Point corners[1][4];
 	corners[0][0] = cv::Point(min_points[0], min_points[1]);
-	corners[0][1] = cv::Point(min_points[2], min_points[3]); 
+	corners[0][1] = cv::Point(adjusted_right_min.x, adjusted_right_min.y);
 	corners[0][2] = cv::Point(top_line[2], top_line[3]); 
 	corners[0][3] = cv::Point(top_line[0], top_line[1]);
 
@@ -105,6 +126,25 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
 	return output;
 }
+
+cv::Point FeatureExtractor::extrapolate_line(cv::Vec4i& line, int y_pt) {
+	cv::Point right_bottom(line[0], line[1]);
+	cv::Point right_top(line[2], line[3]);
+	//std::cout << "right top = " << right_top << std::endl;
+	//std::cout << "right bottom = " << right_bottom << std::endl;
+	float y_diffs = (right_bottom.y - right_top.y);
+	float x_diffs = (right_bottom.x - right_top.x);
+	//std::cout << "y_diffs = " << y_diffs << std::endl;
+	//std::cout << "x_diffs = " << x_diffs << std::endl;
+	float slope = float(right_bottom.y - right_top.y) / float(right_bottom.x - right_top.x);
+	//std::cout << "Slope = " << slope << std::endl;
+	float y_intercept = right_top.y - slope * right_top.x;
+	float x = y_pt / slope - y_intercept;
+	//std::cout << "x = " << x << std::endl;
+	int x_pt = static_cast<int>(x);
+	return cv::Point(x_pt, y_pt);
+}
+
 
 cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input) {
 	cv::Mat lines(input);
@@ -143,7 +183,6 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input) {
 	top_line[2] = r_min_pt.x;
 	top_line[3] = r_min_pt.y;
 	return top_line;
-
 }
 
 cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input) {

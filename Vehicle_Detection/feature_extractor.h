@@ -6,6 +6,7 @@
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/core_c.h>
 #include <opencv2/objdetect.hpp>
+#include <opencv2/ml.hpp>
 #include <filesystem>
 #include <vector>
 #include <sstream>
@@ -31,6 +32,7 @@ public:
 
 	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string);
 	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&);
+	void train_svm(std::vector<cv::Mat>&, std::vector<int>&);
 
 private:
 	std::vector<cv::Mat> load_images(std::string);

@@ -312,6 +312,21 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& d
 	return hog_ims;
 }
 
+void FeatureExtractor::train_svm(std::vector<cv::Mat>&, std::vector<int>&) {
+	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::create();
+	
+	// hyper param setup
+	svm_model->setCoef0(0.0);
+	svm_model->setDegree(3);
+	svm_model->setTermCriteria(cv::TermCriteria(cv::TermCriteria::MAX_ITER, 100, 1e-3));
+	svm_model->setGamma(0);
+	svm_model->setKernel(cv::ml::SVM::LINEAR);
+	svm_model->setNu(0.5);
+	svm_model->setP(0.1);
+	svm_model->setC(0.01);
+	svm_model->setType(cv::ml::SVM::EPS_SVR);
+}
+
 std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc) {
 	std::vector<cv::Mat> images;
 	for (const auto& entry : std::filesystem::directory_iterator(dataset_loc)) {

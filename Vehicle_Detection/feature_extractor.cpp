@@ -15,9 +15,9 @@ cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 }
 
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_l2,
-														double top_r1, double top_r2,
-														double bottom_l1, double bottom_l2 ,
-														double bottom_r1, double bottom_r2) {
+													  double top_r1, double top_r2,
+													  double bottom_l1, double bottom_l2,
+													  double bottom_r1, double bottom_r2) {
 	input.convertTo(input, CV_64F);
 
 	std::pair<int, int> top_left = { input.cols * top_l1 , input.rows * top_l2 };
@@ -130,17 +130,9 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 cv::Point FeatureExtractor::extrapolate_line(cv::Vec4i& line, int y_pt) {
 	cv::Point right_bottom(line[0], line[1]);
 	cv::Point right_top(line[2], line[3]);
-	//std::cout << "right top = " << right_top << std::endl;
-	//std::cout << "right bottom = " << right_bottom << std::endl;
-	float y_diffs = (right_bottom.y - right_top.y);
-	float x_diffs = (right_bottom.x - right_top.x);
-	//std::cout << "y_diffs = " << y_diffs << std::endl;
-	//std::cout << "x_diffs = " << x_diffs << std::endl;
 	float slope = float(right_bottom.y - right_top.y) / float(right_bottom.x - right_top.x);
-	//std::cout << "Slope = " << slope << std::endl;
 	float y_intercept = right_top.y - slope * right_top.x;
 	float x = y_pt / slope - y_intercept;
-	//std::cout << "x = " << x << std::endl;
 	int x_pt = static_cast<int>(x);
 	return cv::Point(x_pt, y_pt);
 }
@@ -272,4 +264,69 @@ void FeatureExtractor::show_image(cv::Mat& img, int x_window, int y_window, int 
 	cv::resizeWindow("output", img.cols / x_window, img.rows / y_window);
 	cv::imshow("output", img);
 	cv::waitKey(delay);
+}
+
+std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset(std::string car_ds_loc, std::string non_car_ds) {
+	
+	std::vector<cv::Mat> vehicles_arr = this->load_images(car_ds_loc);
+	//cv::Size v_labels_sz = { 1, (int)vehicles_arr.size() };
+	//cv::Mat vehicle_labels = cv::Mat::ones(v_labels_sz, CV_32F);
+	std::vector<int> vehicle_labels(vehicles_arr.size(), 1);
+
+	std::vector<cv::Mat> non_vehicles_arr = this->load_images(non_car_ds);
+	//cv::Size nv_labels_sz = { 1, (int)non_vehicles_arr.size() };
+	//cv::Mat non_vehicle_labels = cv::Mat::zeros(nv_labels_sz, CV_32F);
+	std::vector<int> non_vehicle_labels(non_vehicles_arr.size(), 0);
+	
+
+	// Concat matrices
+	std::vector<cv::Mat> x_data;
+	x_data.reserve(vehicles_arr.size() + non_vehicles_arr.size());
+	x_data.insert(x_data.end(), vehicles_arr.begin(), vehicles_arr.end());
+	x_data.insert(x_data.end(), non_vehicles_arr.begin(), non_vehicles_arr.end());
+
+	std::vector<int> y_data;
+	std::cout << "Vehicle label size = " << vehicle_labels.size() << std::endl;
+	std::cout << "None Vehicle label size = " << non_vehicle_labels.size() << std::endl;
+	y_data.reserve(vehicle_labels.size() + non_vehicle_labels.size());
+	y_data.insert(y_data.end(), vehicle_labels.begin(), vehicle_labels.end());
+	y_data.insert(y_data.end(), non_vehicle_labels.begin(), non_vehicle_labels.end());
+
+	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = { x_data,y_data };
+	return dataset;
+}
+
+std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc) {
+	std::vector<cv::Mat> images;
+	for (const auto& entry : std::filesystem::directory_iterator(dataset_loc)) {
+		// Go into various dirs
+		std::string curr_item_path = entry.path().string();
+		std::vector<std::string> dir_items = this->split(curr_item_path, '/');
+		std::string curr_item = dir_items[dir_items.size() - 1];
+		if (curr_item != ".DS_Store") {
+			// go into each of those directories
+			for (const auto& im_file : std::filesystem::directory_iterator(curr_item_path)) {
+				std::string curr_im_path = im_file.path().string();
+				std::vector<std::string> im_dir_items = this->split(curr_im_path, '\\');
+				std::string curr_im = im_dir_items[im_dir_items.size() - 1];
+				if (curr_im != ".DS_Store") {
+					// Open images
+					cv::Mat curr_im_mat = cv::imread(curr_im_path);
+					images.push_back(curr_im_mat);
+				}
+			}
+		}
+	}
+	return images;
+}
+
+// https://stackoverflow.com/questions/9435385/split-a-string-using-c11/9437426
+std::vector<std::string> FeatureExtractor::split(const std::string& s, char delim) {
+	std::stringstream ss(s);
+	std::string item;
+	std::vector<std::string> elems;
+	while (std::getline(ss, item, delim)) {
+		elems.push_back(item);
+	}
+	return elems;
 }

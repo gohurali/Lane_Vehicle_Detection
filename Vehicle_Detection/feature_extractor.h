@@ -5,7 +5,9 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/core/core_c.h>
+#include <filesystem>
 #include <vector>
+#include <sstream>
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
@@ -25,6 +27,12 @@ public:
 	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&);
 	cv::Point extrapolate_line(cv::Vec4i&, int);
 	void show_image(cv::Mat&,int,int,int);
+
+	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string);
+
+private:
+	std::vector<cv::Mat> load_images(std::string);
+	std::vector<std::string> split(const std::string&, char);
 };
 
 #endif

@@ -1,3 +1,7 @@
+*.mp4
+datasets/svm_data/
+datasets/udacity_challenge_video/challenge_frames/
+*.avi
 *.sln
 *.vcxproj
 *.vcxproj.filters

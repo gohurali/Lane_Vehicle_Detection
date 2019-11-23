@@ -277,23 +277,39 @@ std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset
 	//cv::Size nv_labels_sz = { 1, (int)non_vehicles_arr.size() };
 	//cv::Mat non_vehicle_labels = cv::Mat::zeros(nv_labels_sz, CV_32F);
 	std::vector<int> non_vehicle_labels(non_vehicles_arr.size(), 0);
-	
 
 	// Concat matrices
 	std::vector<cv::Mat> x_data;
 	x_data.reserve(vehicles_arr.size() + non_vehicles_arr.size());
 	x_data.insert(x_data.end(), vehicles_arr.begin(), vehicles_arr.end());
 	x_data.insert(x_data.end(), non_vehicles_arr.begin(), non_vehicles_arr.end());
-
 	std::vector<int> y_data;
 	std::cout << "Vehicle label size = " << vehicle_labels.size() << std::endl;
 	std::cout << "None Vehicle label size = " << non_vehicle_labels.size() << std::endl;
 	y_data.reserve(vehicle_labels.size() + non_vehicle_labels.size());
 	y_data.insert(y_data.end(), vehicle_labels.begin(), vehicle_labels.end());
 	y_data.insert(y_data.end(), non_vehicle_labels.begin(), non_vehicle_labels.end());
-
 	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = { x_data,y_data };
 	return dataset;
+}
+
+std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& dataset) {
+	// HOG Params
+	cv::Size window_stride = { dataset[0].rows,dataset[0].cols };
+	cv::Size padding = { 0,0 };
+	std::vector<float> descriptors;
+	std::vector<cv::Point> location_pts;
+	std::vector<cv::Mat> hog_ims;
+	for (int i = 0; i < dataset.size(); i++) {
+		
+		cv::Mat curr_im = dataset[i];
+		cv::Mat gray_im;
+		cv::cvtColor(curr_im, gray_im, cv::COLOR_BGR2GRAY);
+		cv::HOGDescriptor hog;
+		hog.compute(gray_im, descriptors,window_stride, padding,location_pts);
+		hog_ims.push_back(cv::Mat(descriptors).clone());
+	}
+	return hog_ims;
 }
 
 std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc) {

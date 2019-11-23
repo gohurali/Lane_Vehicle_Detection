@@ -11,7 +11,8 @@ int main() {
 	//fe.load_dataset(car_dataset_loc, noncar_dataset_loc);
 	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(car_dataset_loc, noncar_dataset_loc);
 	std::cout << "Size of y_data = " << dataset.second.size() << std::endl;
-
+	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first);
+	std::cout << "Size of hog ims = " << hog_ims.size() << std::endl;
 
 	return 0;
 }

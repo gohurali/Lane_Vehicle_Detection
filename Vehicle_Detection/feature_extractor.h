@@ -33,6 +33,7 @@ public:
 	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string);
 	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&);
 	void train_svm(std::vector<cv::Mat>&, std::vector<int>&);
+	std::pair<cv::Mat, cv::Mat> prepare_training_data(std::vector<cv::Mat>&,std::vector<int>&);
 
 private:
 	std::vector<cv::Mat> load_images(std::string);

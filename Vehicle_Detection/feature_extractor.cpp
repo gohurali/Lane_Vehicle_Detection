@@ -293,40 +293,6 @@ std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset
 	return dataset;
 }
 
-std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& dataset) {
-	// HOG Params
-	cv::Size window_stride = { dataset[0].rows,dataset[0].cols };
-	cv::Size padding = { 0,0 };
-	std::vector<float> descriptors;
-	std::vector<cv::Point> location_pts;
-	std::vector<cv::Mat> hog_ims;
-	for (int i = 0; i < dataset.size(); i++) {
-		
-		cv::Mat curr_im = dataset[i];
-		cv::Mat gray_im;
-		cv::cvtColor(curr_im, gray_im, cv::COLOR_BGR2GRAY);
-		cv::HOGDescriptor hog;
-		hog.compute(gray_im, descriptors,window_stride, padding,location_pts);
-		hog_ims.push_back(cv::Mat(descriptors).clone());
-	}
-	return hog_ims;
-}
-
-void FeatureExtractor::train_svm(std::vector<cv::Mat>&, std::vector<int>&) {
-	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::create();
-	
-	// hyper param setup
-	svm_model->setCoef0(0.0);
-	svm_model->setDegree(3);
-	svm_model->setTermCriteria(cv::TermCriteria(cv::TermCriteria::MAX_ITER, 100, 1e-3));
-	svm_model->setGamma(0);
-	svm_model->setKernel(cv::ml::SVM::LINEAR);
-	svm_model->setNu(0.5);
-	svm_model->setP(0.1);
-	svm_model->setC(0.01);
-	svm_model->setType(cv::ml::SVM::EPS_SVR);
-}
-
 std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc) {
 	std::vector<cv::Mat> images;
 	for (const auto& entry : std::filesystem::directory_iterator(dataset_loc)) {
@@ -351,6 +317,35 @@ std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc) {
 	return images;
 }
 
+std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& dataset) {
+	// HOG Params
+	cv::Size window_stride = { dataset[0].rows,dataset[0].cols };
+	cv::Size padding = { 0,0 };
+	std::vector<float> descriptors;
+	std::vector<cv::Point> location_pts;
+	
+	std::vector<cv::Mat> hog_ims;
+	for (int i = 0; i < dataset.size(); i++) {
+		
+		cv::Mat curr_im = dataset[i];
+		cv::Mat gray_im;
+		cv::cvtColor(curr_im, gray_im, cv::COLOR_BGR2GRAY);
+		location_pts.push_back(cv::Point(gray_im.cols / 2, gray_im.rows / 2));
+		cv::HOGDescriptor hog;
+		
+		hog.compute(gray_im, descriptors,window_stride, padding,location_pts);
+		int des_sz = descriptors.size();
+		
+		cv::Mat out = cv::Mat(descriptors).clone();
+		hog_ims.push_back(out);
+		printf("r of descriptors = %i -- c of descriptiors\n", out.rows, out.cols);
+		for (int item = 0; item < out.rows; item++) {
+			printf("%f , ", out.at<float>(item));
+		}
+	}
+	return hog_ims;
+}
+
 // https://stackoverflow.com/questions/9435385/split-a-string-using-c11/9437426
 std::vector<std::string> FeatureExtractor::split(const std::string& s, char delim) {
 	std::stringstream ss(s);
@@ -360,4 +355,30 @@ std::vector<std::string> FeatureExtractor::split(const std::string& s, char deli
 		elems.push_back(item);
 	}
 	return elems;
+}
+
+void FeatureExtractor::train_svm(std::vector<cv::Mat>& x_data, std::vector<int>& y_data) {
+	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::create();
+	// hyper param setup
+	svm_model->setCoef0(0.0);
+	svm_model->setDegree(3);
+	svm_model->setTermCriteria(cv::TermCriteria(cv::TermCriteria::MAX_ITER, 100, 1e-3));
+	svm_model->setGamma(0);
+	svm_model->setKernel(cv::ml::SVM::LINEAR);
+	svm_model->setNu(0.5);
+	svm_model->setP(0.1);
+	svm_model->setC(0.01);
+	svm_model->setType(cv::ml::SVM::EPS_SVR);
+
+	svm_model->train(x_data, cv::ml::ROW_SAMPLE, y_data);
+}
+
+std::pair<cv::Mat, cv::Mat> FeatureExtractor::prepare_training_data(std::vector<cv::Mat>& x_data, std::vector<int>& y_data) {
+	// Convert x_data to mat
+	//cv::Mat x_data_mat((int)x_data.size(), std::max(x_data[0].rows, x_data[0].cols),CV_32FC1);
+	/*for (int i = 0; i < x_data.size(); i++) {
+		printf("x_data rows = %i ---- x_data cols = %i\n", x_data[i].rows, x_data[i].cols);
+	}*/
+	std::pair<cv::Mat, cv::Mat> ret;
+	return ret;
 }

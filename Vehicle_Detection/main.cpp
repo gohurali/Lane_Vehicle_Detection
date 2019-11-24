@@ -14,6 +14,10 @@ int main() {
 	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first);
 	std::cout << "Size of hog ims = " << hog_ims.size() << std::endl;
 
+	std::cout << "Training SVM" << std::endl;
+	std::pair<cv::Mat, cv::Mat> ret = fe.prepare_training_data(hog_ims, dataset.second);
+	//fe.train_svm(hog_ims, dataset.second);
+
 	return 0;
 }
 

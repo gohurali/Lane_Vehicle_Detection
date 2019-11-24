@@ -266,16 +266,12 @@ void FeatureExtractor::show_image(cv::Mat& img, int x_window, int y_window, int 
 	cv::waitKey(delay);
 }
 
-std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset(std::string car_ds_loc, std::string non_car_ds) {
+std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset(std::string car_ds_loc, std::string non_car_ds,bool debug) {
 	
-	std::vector<cv::Mat> vehicles_arr = this->load_images(car_ds_loc);
-	//cv::Size v_labels_sz = { 1, (int)vehicles_arr.size() };
-	//cv::Mat vehicle_labels = cv::Mat::ones(v_labels_sz, CV_32F);
+	std::vector<cv::Mat> vehicles_arr = this->load_images(car_ds_loc,debug);
 	std::vector<int> vehicle_labels(vehicles_arr.size(), 1);
 
-	std::vector<cv::Mat> non_vehicles_arr = this->load_images(non_car_ds);
-	//cv::Size nv_labels_sz = { 1, (int)non_vehicles_arr.size() };
-	//cv::Mat non_vehicle_labels = cv::Mat::zeros(nv_labels_sz, CV_32F);
+	std::vector<cv::Mat> non_vehicles_arr = this->load_images(non_car_ds,debug);
 	std::vector<int> non_vehicle_labels(non_vehicles_arr.size(), 0);
 
 	// Concat matrices
@@ -293,7 +289,8 @@ std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset
 	return dataset;
 }
 
-std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc) {
+std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc,bool debug) {
+	int count = 0;
 	std::vector<cv::Mat> images;
 	for (const auto& entry : std::filesystem::directory_iterator(dataset_loc)) {
 		// Go into various dirs
@@ -307,19 +304,23 @@ std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc) {
 				std::vector<std::string> im_dir_items = this->split(curr_im_path, '\\');
 				std::string curr_im = im_dir_items[im_dir_items.size() - 1];
 				if (curr_im != ".DS_Store") {
+					if (count == 5)
+						return images;
 					// Open images
 					cv::Mat curr_im_mat = cv::imread(curr_im_path);
 					images.push_back(curr_im_mat);
 				}
+				if(debug)
+					count++;
 			}
 		}
 	}
 	return images;
 }
 
-std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& dataset) {
+std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& dataset,bool debug) {
 	// HOG Params
-	cv::Size window_stride = { dataset[0].rows,dataset[0].cols };
+	cv::Size window_stride = { 8,8};
 	cv::Size padding = { 0,0 };
 	std::vector<float> descriptors;
 	std::vector<cv::Point> location_pts;
@@ -332,15 +333,18 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& d
 		cv::cvtColor(curr_im, gray_im, cv::COLOR_BGR2GRAY);
 		location_pts.push_back(cv::Point(gray_im.cols / 2, gray_im.rows / 2));
 		cv::HOGDescriptor hog;
-		
-		hog.compute(gray_im, descriptors,window_stride, padding,location_pts);
+		hog.winSize = cv::Size(gray_im.rows, gray_im.cols);
+
+		hog.compute(gray_im, descriptors,window_stride);
 		int des_sz = descriptors.size();
 		
 		cv::Mat out = cv::Mat(descriptors).clone();
 		hog_ims.push_back(out);
-		printf("r of descriptors = %i -- c of descriptiors\n", out.rows, out.cols);
-		for (int item = 0; item < out.rows; item++) {
-			printf("%f , ", out.at<float>(item));
+		if (debug) {
+			printf("r of descriptors = %i -- c of descriptiors = %i\n", out.rows, out.cols);
+			for (int item = 0; item < out.rows; item++) {
+				printf("%f , ", out.at<float>(item));
+			}
 		}
 	}
 	return hog_ims;
@@ -357,7 +361,8 @@ std::vector<std::string> FeatureExtractor::split(const std::string& s, char deli
 	return elems;
 }
 
-void FeatureExtractor::train_svm(std::vector<cv::Mat>& x_data, std::vector<int>& y_data) {
+void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data) {
+	printf("Training SVM\n"); 
 	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::create();
 	// hyper param setup
 	svm_model->setCoef0(0.0);
@@ -369,16 +374,19 @@ void FeatureExtractor::train_svm(std::vector<cv::Mat>& x_data, std::vector<int>&
 	svm_model->setP(0.1);
 	svm_model->setC(0.01);
 	svm_model->setType(cv::ml::SVM::EPS_SVR);
-
 	svm_model->train(x_data, cv::ml::ROW_SAMPLE, y_data);
+	svm_model->save("model.yaml");
+	printf("-- Training Complete -- \n");
 }
 
 std::pair<cv::Mat, cv::Mat> FeatureExtractor::prepare_training_data(std::vector<cv::Mat>& x_data, std::vector<int>& y_data) {
 	// Convert x_data to mat
-	//cv::Mat x_data_mat((int)x_data.size(), std::max(x_data[0].rows, x_data[0].cols),CV_32FC1);
-	/*for (int i = 0; i < x_data.size(); i++) {
-		printf("x_data rows = %i ---- x_data cols = %i\n", x_data[i].rows, x_data[i].cols);
-	}*/
-	std::pair<cv::Mat, cv::Mat> ret;
+	cv::Mat x_data_mat((int)x_data.size(), std::max(x_data[0].rows, x_data[0].cols),CV_32FC1);
+	cv::Mat current_sample(1, std::max(x_data[0].rows, x_data[0].cols), CV_32FC1);
+	for (int i = 0; i < x_data.size(); i++) {
+		current_sample.copyTo(x_data_mat.row(i));
+	}
+	// convert y_data
+	std::pair<cv::Mat, cv::Mat> ret = {x_data_mat,cv::Mat(y_data)};
 	return ret;
 }

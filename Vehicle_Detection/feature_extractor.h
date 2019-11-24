@@ -30,13 +30,13 @@ public:
 	cv::Point extrapolate_line(cv::Vec4i&, int);
 	void show_image(cv::Mat&,int,int,int);
 
-	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string);
-	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&);
-	void train_svm(std::vector<cv::Mat>&, std::vector<int>&);
+	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string,bool);
+	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&,bool);
+	void train_svm(cv::Mat&, cv::Mat&);
 	std::pair<cv::Mat, cv::Mat> prepare_training_data(std::vector<cv::Mat>&,std::vector<int>&);
 
 private:
-	std::vector<cv::Mat> load_images(std::string);
+	std::vector<cv::Mat> load_images(std::string,bool);
 	std::vector<std::string> split(const std::string&, char);
 };
 

@@ -5,19 +5,13 @@
 int main() {
 	std::string car_dataset_loc = "../datasets/svm_data/vehicles/vehicles/";
 	std::string noncar_dataset_loc = "../datasets/svm_data/non-vehicles/non-vehicles/";
-	std::cout << "Program Start" << std::endl;
 	FeatureExtractor fe;
-
-	//fe.load_dataset(car_dataset_loc, noncar_dataset_loc);
-	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(car_dataset_loc, noncar_dataset_loc);
-	std::cout << "Size of y_data = " << dataset.second.size() << std::endl;
-	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first);
-	std::cout << "Size of hog ims = " << hog_ims.size() << std::endl;
-
-	std::cout << "Training SVM" << std::endl;
-	std::pair<cv::Mat, cv::Mat> ret = fe.prepare_training_data(hog_ims, dataset.second);
-	//fe.train_svm(hog_ims, dataset.second);
-
+	// -- Get the dataset --
+	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(car_dataset_loc, noncar_dataset_loc,false);
+	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first,false);
+	std::pair<cv::Mat, cv::Mat> transformed_dataset = fe.prepare_training_data(hog_ims, dataset.second);
+	fe.train_svm(transformed_dataset.first, transformed_dataset.second);
+	
 	return 0;
 }
 

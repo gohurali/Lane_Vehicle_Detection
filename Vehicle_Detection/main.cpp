@@ -6,11 +6,19 @@ int main() {
 	std::string car_dataset_loc = "../datasets/svm_data/vehicles/vehicles/";
 	std::string noncar_dataset_loc = "../datasets/svm_data/non-vehicles/non-vehicles/";
 	FeatureExtractor fe;
-	// -- Get the dataset --
-	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(car_dataset_loc, noncar_dataset_loc,false);
-	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first,false);
-	std::pair<cv::Mat, cv::Mat> transformed_dataset = fe.prepare_training_data(hog_ims, dataset.second);
-	fe.train_svm(transformed_dataset.first, transformed_dataset.second);
+
+	if (!std::filesystem::exists("model.yaml")) {
+		printf("No trained SVM Exists! Creating model...\n");
+		// -- Get the dataset --
+		std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(car_dataset_loc, noncar_dataset_loc, false);
+		std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first, false);
+		std::pair<cv::Mat, cv::Mat> transformed_dataset = fe.prepare_training_data(hog_ims, dataset.second);
+		fe.train_svm(transformed_dataset.first, transformed_dataset.second);
+	}
+	else {
+		printf("Trained SVM Exists! Opening model...\n");
+	}
+	
 	
 	return 0;
 }

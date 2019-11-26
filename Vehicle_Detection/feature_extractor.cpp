@@ -272,7 +272,7 @@ std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset
 	std::vector<int> vehicle_labels(vehicles_arr.size(), 1);
 
 	std::vector<cv::Mat> non_vehicles_arr = this->load_images(non_car_ds,debug);
-	std::vector<int> non_vehicle_labels(non_vehicles_arr.size(), 0);
+	std::vector<int> non_vehicle_labels(non_vehicles_arr.size(), -1);
 
 	// Concat matrices
 	std::vector<cv::Mat> x_data;
@@ -304,7 +304,7 @@ std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc,bool 
 				std::vector<std::string> im_dir_items = this->split(curr_im_path, '\\');
 				std::string curr_im = im_dir_items[im_dir_items.size() - 1];
 				if (curr_im != ".DS_Store") {
-					if (count == 5)
+					if (count == 200)
 						return images;
 					// Open images
 					cv::Mat curr_im_mat = cv::imread(curr_im_path);
@@ -324,6 +324,8 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& d
 	cv::Size padding = { 0,0 };
 	std::vector<float> descriptors;
 	std::vector<cv::Point> location_pts;
+	cv::HOGDescriptor hog;
+	hog.winSize = cv::Size(64,64);
 	
 	std::vector<cv::Mat> hog_ims;
 	for (int i = 0; i < dataset.size(); i++) {
@@ -331,13 +333,14 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& d
 		cv::Mat curr_im = dataset[i];
 		cv::Mat gray_im;
 		cv::cvtColor(curr_im, gray_im, cv::COLOR_BGR2GRAY);
-		location_pts.push_back(cv::Point(gray_im.cols / 2, gray_im.rows / 2));
-		cv::HOGDescriptor hog;
-		hog.winSize = cv::Size(gray_im.rows, gray_im.cols);
-
-		hog.compute(gray_im, descriptors,window_stride);
-		int des_sz = descriptors.size();
+		//location_pts.push_back(cv::Point(gray_im.cols / 2, gray_im.rows / 2));
 		
+		hog.compute(gray_im, descriptors,window_stride,padding,location_pts);
+		int des_sz = descriptors.size();
+		//cv::Mat test = this->get_hogdescriptor_visu(curr_im.clone(), descriptors, cv::Size(64, 64));
+		//this->show_image(test, 1, 1, 5000);
+
+
 		cv::Mat out = cv::Mat(descriptors).clone();
 		hog_ims.push_back(out);
 		if (debug) {
@@ -367,13 +370,14 @@ void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data) {
 	// hyper param setup
 	svm_model->setCoef0(0.0);
 	svm_model->setDegree(3);
-	svm_model->setTermCriteria(cv::TermCriteria(cv::TermCriteria::MAX_ITER, 100, 1e-3));
 	svm_model->setGamma(0);
-	svm_model->setKernel(cv::ml::SVM::LINEAR);
 	svm_model->setNu(0.5);
 	svm_model->setP(0.1);
 	svm_model->setC(0.01);
-	svm_model->setType(cv::ml::SVM::EPS_SVR);
+	//svm_model->setType(cv::ml::SVM::EPS_SVR);
+	svm_model->setType(cv::ml::SVM::C_SVC);
+	svm_model->setKernel(cv::ml::SVM::LINEAR);
+	svm_model->setTermCriteria(cv::TermCriteria(CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3));
 	svm_model->train(x_data, cv::ml::ROW_SAMPLE, y_data);
 	svm_model->save("model.yaml");
 	printf("-- Training Complete -- \n");
@@ -381,12 +385,238 @@ void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data) {
 
 std::pair<cv::Mat, cv::Mat> FeatureExtractor::prepare_training_data(std::vector<cv::Mat>& x_data, std::vector<int>& y_data) {
 	// Convert x_data to mat
-	cv::Mat x_data_mat((int)x_data.size(), std::max(x_data[0].rows, x_data[0].cols),CV_32FC1);
+	int rs = x_data.size();
+	int cs = std::max(x_data[0].rows, x_data[0].cols);
+	cv::Mat x_data_mat(rs,cs,CV_32FC1);
+	printf("x_data shape = { r = %i , c = %i}\n", x_data_mat.rows, x_data_mat.cols);
 	cv::Mat current_sample(1, std::max(x_data[0].rows, x_data[0].cols), CV_32FC1);
 	for (int i = 0; i < x_data.size(); i++) {
-		current_sample.copyTo(x_data_mat.row(i));
+		//x_data[i].copyTo(x_data_mat.row(i));
+		CV_Assert(x_data[i].cols == 1 ||
+			x_data[i].rows == 1);
+		if (x_data[i].cols == 1)
+		{
+			transpose(x_data[i], current_sample);
+			current_sample.copyTo(x_data_mat.row(i));
+		}
+		else if (x_data[i].rows == 1)
+		{
+			x_data[i].copyTo(x_data_mat.row(i));
+		}
 	}
 	// convert y_data
 	std::pair<cv::Mat, cv::Mat> ret = {x_data_mat,cv::Mat(y_data)};
 	return ret;
+}
+
+// https://docs.opencv.org/3.4/d0/df8/samples_2cpp_2train_HOG_8cpp-example.html#a70
+std::vector<float> FeatureExtractor::get_svm_detector(std::string model_loc) {
+	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::load(model_loc);
+	//cv::Ptr<cv::ml::SVM> svm_model = cv::ml::StatModel::load<cv::ml::SVM>(model_loc);
+	cv::Mat support_vectors = svm_model->getSupportVectors();
+	const int sv_total = support_vectors.rows;
+	cv::Mat alpha;
+	cv::Mat svidx;
+	double rho = svm_model->getDecisionFunction(0, alpha, svidx);
+	
+	CV_Assert(alpha.total() == 1 && svidx.total() == 1 && sv_total == 1);
+	CV_Assert((alpha.type() == CV_64F && alpha.at<double>(0) == 1.) ||
+		(alpha.type() == CV_32F && alpha.at<float>(0) == 1.f));
+	CV_Assert(support_vectors.type() == CV_32F);
+	float sz = support_vectors.cols + 1;
+	std::vector<float> hog_detector;
+	printf("baaaaam\n");
+	hog_detector.resize(sz);
+	printf("gaaaaam\n");
+	memcpy(&hog_detector[0], support_vectors.ptr(), support_vectors.cols * sizeof(hog_detector[0]));
+	printf("yaaaaam\n");
+	hog_detector[support_vectors.cols] = (float)-rho;
+	printf("zaaaaam\n");
+	return hog_detector;
+}
+
+std::vector<cv::Point> FeatureExtractor::detection_roi(cv::Mat& input, double top_l1, double top_l2,
+														double top_r1, double top_r2,
+														double bottom_l1, double bottom_l2,
+														double bottom_r1, double bottom_r2) {
+	input.convertTo(input, CV_32FC1);
+	printf("1single im r = %i ---- c = %i\n", input.rows, input.cols);
+	cv::Point top_left_pt;
+	top_left_pt.x = input.cols * top_l1;
+	top_left_pt.y = input.rows * top_l2;
+	printf("2single im r = %i ---- c = %i\n", input.rows, input.cols);
+	cv::Point top_right_pt;
+	top_right_pt.x = input.cols * top_r1;
+	top_right_pt.y = input.rows * top_r2;
+	printf("3single im r = %i ---- c = %i\n", input.rows, input.cols);
+	cv::Point bottom_left_pt;
+	bottom_left_pt.x = input.cols * bottom_l1;
+	bottom_left_pt.y = input.rows * bottom_l2;
+	printf("4single im r = %i ---- c = %i\n", input.rows, input.cols);
+	cv::Point bottom_right_pt;
+	bottom_right_pt.x = input.cols * bottom_r1;
+	bottom_right_pt.y = input.rows * bottom_r2;
+	printf("5single im r = %i ---- c = %i\n", input.rows, input.cols);
+	std::vector<cv::Point> roi = { top_left_pt ,top_right_pt,bottom_left_pt,bottom_right_pt };
+	return roi;
+}
+
+
+// Visualizing HOG On image
+// From http://www.juergenwiki.de/work/wiki/doku.php?id=public:hog_descriptor_computation_and_visualization
+cv::Mat FeatureExtractor::get_hogdescriptor_visu(const cv::Mat& color_origImg, std::vector<float>& descriptorValues, const cv::Size& size)
+{
+	const int DIMX = size.width;
+	const int DIMY = size.height;
+	float zoomFac = 3;
+	cv::Mat visu;
+	resize(color_origImg, visu, cv::Size((int)(color_origImg.cols * zoomFac), (int)(color_origImg.rows * zoomFac)));
+
+	int cellSize = 8;
+	int gradientBinSize = 9;
+	float radRangeForOneBin = (float)(CV_PI / (float)gradientBinSize); // dividing 180° into 9 bins, how large (in rad) is one bin?
+
+	// prepare data structure: 9 orientation / gradient strenghts for each cell
+	int cells_in_x_dir = DIMX / cellSize;
+	int cells_in_y_dir = DIMY / cellSize;
+	float*** gradientStrengths = new float** [cells_in_y_dir];
+	int** cellUpdateCounter = new int* [cells_in_y_dir];
+	for (int y = 0; y < cells_in_y_dir; y++)
+	{
+		gradientStrengths[y] = new float* [cells_in_x_dir];
+		cellUpdateCounter[y] = new int[cells_in_x_dir];
+		for (int x = 0; x < cells_in_x_dir; x++)
+		{
+			gradientStrengths[y][x] = new float[gradientBinSize];
+			cellUpdateCounter[y][x] = 0;
+
+			for (int bin = 0; bin < gradientBinSize; bin++)
+				gradientStrengths[y][x][bin] = 0.0;
+		}
+	}
+
+	// nr of blocks = nr of cells - 1
+	// since there is a new block on each cell (overlapping blocks!) but the last one
+	int blocks_in_x_dir = cells_in_x_dir - 1;
+	int blocks_in_y_dir = cells_in_y_dir - 1;
+
+	// compute gradient strengths per cell
+	int descriptorDataIdx = 0;
+	int cellx = 0;
+	int celly = 0;
+
+	for (int blockx = 0; blockx < blocks_in_x_dir; blockx++)
+	{
+		for (int blocky = 0; blocky < blocks_in_y_dir; blocky++)
+		{
+			// 4 cells per block ...
+			for (int cellNr = 0; cellNr < 4; cellNr++)
+			{
+				// compute corresponding cell nr
+				cellx = blockx;
+				celly = blocky;
+				if (cellNr == 1) celly++;
+				if (cellNr == 2) cellx++;
+				if (cellNr == 3)
+				{
+					cellx++;
+					celly++;
+				}
+
+				for (int bin = 0; bin < gradientBinSize; bin++)
+				{
+					float gradientStrength = descriptorValues[descriptorDataIdx];
+					descriptorDataIdx++;
+
+					gradientStrengths[celly][cellx][bin] += gradientStrength;
+
+				} // for (all bins)
+
+
+				// note: overlapping blocks lead to multiple updates of this sum!
+				// we therefore keep track how often a cell was updated,
+				// to compute average gradient strengths
+				cellUpdateCounter[celly][cellx]++;
+
+			} // for (all cells)
+
+
+		} // for (all block x pos)
+	} // for (all block y pos)
+
+
+	// compute average gradient strengths
+	for (celly = 0; celly < cells_in_y_dir; celly++)
+	{
+		for (cellx = 0; cellx < cells_in_x_dir; cellx++)
+		{
+
+			float NrUpdatesForThisCell = (float)cellUpdateCounter[celly][cellx];
+
+			// compute average gradient strenghts for each gradient bin direction
+			for (int bin = 0; bin < gradientBinSize; bin++)
+			{
+				gradientStrengths[celly][cellx][bin] /= NrUpdatesForThisCell;
+			}
+		}
+	}
+
+	// draw cells
+	for (celly = 0; celly < cells_in_y_dir; celly++)
+	{
+		for (cellx = 0; cellx < cells_in_x_dir; cellx++)
+		{
+			int drawX = cellx * cellSize;
+			int drawY = celly * cellSize;
+
+			int mx = drawX + cellSize / 2;
+			int my = drawY + cellSize / 2;
+
+			rectangle(visu, cv::Point((int)(drawX * zoomFac), (int)(drawY * zoomFac)), cv::Point((int)((drawX + cellSize) * zoomFac), (int)((drawY + cellSize) * zoomFac)), cv::Scalar(100, 100, 100), 1);
+
+			// draw in each cell all 9 gradient strengths
+			for (int bin = 0; bin < gradientBinSize; bin++)
+			{
+				float currentGradStrength = gradientStrengths[celly][cellx][bin];
+
+				// no line to draw?
+				if (currentGradStrength == 0)
+					continue;
+
+				float currRad = bin * radRangeForOneBin + radRangeForOneBin / 2;
+
+				float dirVecX = cos(currRad);
+				float dirVecY = sin(currRad);
+				float maxVecLen = (float)(cellSize / 2.f);
+				float scale = 2.5; // just a visualization scale, to see the lines better
+
+				// compute line coordinates
+				float x1 = mx - dirVecX * currentGradStrength * maxVecLen * scale;
+				float y1 = my - dirVecY * currentGradStrength * maxVecLen * scale;
+				float x2 = mx + dirVecX * currentGradStrength * maxVecLen * scale;
+				float y2 = my + dirVecY * currentGradStrength * maxVecLen * scale;
+
+				// draw gradient visualization
+				line(visu, cv::Point((int)(x1 * zoomFac), (int)(y1 * zoomFac)), cv::Point((int)(x2 * zoomFac), (int)(y2 * zoomFac)), cv::Scalar(0, 255, 0), 1);
+
+			} // for (all bins)
+
+		} // for (cellx)
+	} // for (celly)
+
+
+	// don't forget to free memory allocated by helper data structures!
+	for (int y = 0; y < cells_in_y_dir; y++)
+	{
+		for (int x = 0; x < cells_in_x_dir; x++)
+		{
+			delete[] gradientStrengths[y][x];
+		}
+		delete[] gradientStrengths[y];
+		delete[] cellUpdateCounter[y];
+	}
+	delete[] gradientStrengths;
+	delete[] cellUpdateCounter;
+
+	return visu;
 }

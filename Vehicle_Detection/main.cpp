@@ -28,6 +28,8 @@ std::string type2str(int type) {
 int main() {
 
 	bool big_im = true;
+	bool perform_test_svm = true;
+
 	std::string model_file_name = "";
 	if (big_im) {
 		model_file_name = "model_big.yaml";
@@ -45,14 +47,31 @@ int main() {
 	if (!std::filesystem::exists(model_file_name)) {
 		printf("No trained SVM Exists! Creating model...\n");
 		// -- Get the dataset --
-		std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(car_dataset_loc, noncar_dataset_loc, true);
+		std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(car_dataset_loc, noncar_dataset_loc, false);
 		std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first, false);
 		std::cout << hog_ims[0].at<float>(0) << std::endl;
-		//fe.show_image(hog_ims[2], 1, 1, 5000);
+		
 		std::pair<cv::Mat, cv::Mat> transformed_dataset = fe.prepare_training_data(hog_ims, dataset.second);
 		std::cout << transformed_dataset.first.at<float>(0) << std::endl;
 		std::cout << transformed_dataset.second.at<int>(0) << std::endl;
-		fe.train_svm(transformed_dataset.first, transformed_dataset.second);
+
+		if (perform_test_svm) {
+			printf("-- Performing a Test on the SVM --\n");
+			// Shuffle and split the data 
+			cv::Ptr<cv::ml::TrainData> dataset = fe.train_test_split(
+				transformed_dataset.first, 
+				transformed_dataset.second, 
+				200
+			);
+			fe.train_test_svm(
+				dataset->getTrainSamples(), dataset->getTrainResponses(),
+				dataset->getTestSamples(), dataset->getTestResponses(),
+				false
+			);
+		}
+		else {
+			fe.train_svm(transformed_dataset.first, transformed_dataset.second);
+		}	
 	}
 	else {
 		printf("Trained SVM Exists! Opening model...\n");

@@ -42,10 +42,19 @@ public:
 	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string,bool);
 	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&,bool);
 	void train_svm(cv::Mat&, cv::Mat&);
+
+	void train_test_svm(
+		const cv::Mat&, const cv::Mat&, 
+		const cv::Mat&, const cv::Mat&,
+		bool
+	);
+
 	std::pair<cv::Mat, cv::Mat> prepare_training_data(std::vector<cv::Mat>&,std::vector<int>&);
 	cv::Mat get_hogdescriptor_visu(const cv::Mat& color_origImg, std::vector<float>& descriptorValues, const cv::Size& size);
 
 	std::vector<float> get_svm_detector(std::string);
+
+	cv::Ptr<cv::ml::TrainData> train_test_split(cv::Mat& , cv::Mat&, int);
 
 private:
 	std::vector<cv::Mat> load_images(std::string,bool);

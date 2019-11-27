@@ -13,6 +13,19 @@ We developed a lane detection and vehicle detection program by utilizing various
 
 Our C++ solution requires C++17
 
+#### Support Vector Machine Training
+
+```
+-- Performing a Test on the SVM --
+ -------- Training SVM ---------
+x_train size = 17560
+y_train size = 17560
+x_test size = 200
+y_test size = 200
+-- Training Complete --
+SVM Test Accuracy = 0.965000
+```
+
 **Hough Transform for Lane Detection**
 ![demo](outputs/detected_lanes_py_5.gif "demo")
 

@@ -28,7 +28,8 @@ public:
 		double, double,
 		double, double,
 		double, double,
-		double, double
+		double, double,
+		bool
 	);
 
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);

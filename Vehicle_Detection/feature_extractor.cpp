@@ -425,39 +425,44 @@ std::vector<float> FeatureExtractor::get_svm_detector(std::string model_loc) {
 	CV_Assert(support_vectors.type() == CV_32F);
 	float sz = support_vectors.cols + 1;
 	std::vector<float> hog_detector;
-	printf("baaaaam\n");
 	hog_detector.resize(sz);
-	printf("gaaaaam\n");
 	memcpy(&hog_detector[0], support_vectors.ptr(), support_vectors.cols * sizeof(hog_detector[0]));
-	printf("yaaaaam\n");
 	hog_detector[support_vectors.cols] = (float)-rho;
-	printf("zaaaaam\n");
 	return hog_detector;
 }
 
 std::vector<cv::Point> FeatureExtractor::detection_roi(cv::Mat& input, double top_l1, double top_l2,
-														double top_r1, double top_r2,
-														double bottom_l1, double bottom_l2,
-														double bottom_r1, double bottom_r2) {
-	input.convertTo(input, CV_32FC1);
-	printf("1single im r = %i ---- c = %i\n", input.rows, input.cols);
+																	   double top_r1, double top_r2,
+																	   double bottom_l1, double bottom_l2,
+																	   double bottom_r1, double bottom_r2, bool debug) {
+	//input.convertTo(input, CV_32FC1);
 	cv::Point top_left_pt;
 	top_left_pt.x = input.cols * top_l1;
 	top_left_pt.y = input.rows * top_l2;
-	printf("2single im r = %i ---- c = %i\n", input.rows, input.cols);
+
 	cv::Point top_right_pt;
 	top_right_pt.x = input.cols * top_r1;
 	top_right_pt.y = input.rows * top_r2;
-	printf("3single im r = %i ---- c = %i\n", input.rows, input.cols);
+
 	cv::Point bottom_left_pt;
 	bottom_left_pt.x = input.cols * bottom_l1;
 	bottom_left_pt.y = input.rows * bottom_l2;
-	printf("4single im r = %i ---- c = %i\n", input.rows, input.cols);
+
 	cv::Point bottom_right_pt;
 	bottom_right_pt.x = input.cols * bottom_r1;
 	bottom_right_pt.y = input.rows * bottom_r2;
-	printf("5single im r = %i ---- c = %i\n", input.rows, input.cols);
+
 	std::vector<cv::Point> roi = { top_left_pt ,top_right_pt,bottom_left_pt,bottom_right_pt };
+
+	if (debug) {
+		cv::Mat debug_im = input.clone();
+		cv::line(debug_im, top_left_pt, bottom_left_pt, cv::Scalar(0, 0, 255), 2);
+		cv::line(debug_im, top_right_pt, bottom_right_pt, cv::Scalar(0, 0, 255), 2);
+		cv::line(debug_im, top_left_pt, top_right_pt, cv::Scalar(0, 0, 255), 2);
+		cv::line(debug_im, bottom_left_pt, bottom_right_pt, cv::Scalar(0, 0, 255), 2);
+		this->show_image(debug_im, 1, 1, 5000);
+		cv::imwrite("roi_im.png", debug_im);
+	}
 	return roi;
 }
 

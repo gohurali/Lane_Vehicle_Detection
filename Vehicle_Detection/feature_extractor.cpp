@@ -17,7 +17,7 @@ cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_l2,
 													  double top_r1, double top_r2,
 													  double bottom_l1, double bottom_l2,
-													  double bottom_r1, double bottom_r2) {
+													  double bottom_r1, double bottom_r2, bool debug) {
 	input.convertTo(input, CV_64F);
 
 	std::pair<int, int> top_left = { input.cols * top_l1 , input.rows * top_l2 };
@@ -52,8 +52,12 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_
 	int num_polygons = 1;
 	
 	cv::Mat mask = cv::Mat::zeros(cv::Size(input.cols,input.rows), CV_64F);
-	//cv::line(input, bottom_left_pt, top_right_pt, 255);
-	//cv::line(input, bottom_right_pt, top_left_pt, 255);
+
+	// Debug Draw Methods
+	if (debug) {
+		cv::line(input, bottom_left_pt, top_right_pt, 255);
+		cv::line(input, bottom_right_pt, top_left_pt, 255);
+	}
 
 	cv::fillPoly(mask,corner_list,&num_points,num_polygons,cv::Scalar(255));
 	cv::Mat output(cv::Size(mask.cols,mask.rows), CV_64F);
@@ -80,6 +84,8 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 		hough_lines.push_back(pts);
 		//cv::line(output, x1y1,x2y2, cv::Scalar(0, 0, 255));
 	}
+	//this->show_image(output, 1, 1, 5000);
+
 	// Look for highest point
 	cv::Vec4i top_line = this->find_highest_point(hough_lines);
 	cv::line(output, cv::Point(top_line[0], top_line[1]), cv::Point(top_line[2], top_line[3]), cv::Scalar(0, 0, 255),2);
@@ -136,7 +142,6 @@ cv::Point FeatureExtractor::extrapolate_line(cv::Vec4i& line, int y_pt) {
 	int x_pt = static_cast<int>(x);
 	return cv::Point(x_pt, y_pt);
 }
-
 
 cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input) {
 	cv::Mat lines(input);
@@ -251,9 +256,11 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
 	cv::Mat roi_im = this->propose_roi(edges,
 		0, 1,
 		1, 1,
-		0.5, 0.59,
-		0.5, 0.59
+		0.518, 0.59,
+		0.518, 0.59,
+		false
 	);
+	//this->show_image(roi_im, 1, 1, 5000);
 
 	rgb_im = this->get_lanes(roi_im, rgb_im);
 	return rgb_im;
@@ -340,7 +347,6 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& d
 		//cv::Mat test = this->get_hogdescriptor_visu(curr_im.clone(), descriptors, cv::Size(64, 64));
 		//this->show_image(test, 1, 1, 5000);
 
-
 		cv::Mat out = cv::Mat(descriptors).clone();
 		hog_ims.push_back(out);
 		if (debug) {
@@ -362,6 +368,12 @@ std::vector<std::string> FeatureExtractor::split(const std::string& s, char deli
 		elems.push_back(item);
 	}
 	return elems;
+}
+
+cv::Mat FeatureExtractor::normalize_dataset(cv::Mat& x_data) {
+	cv::Mat norm_x_data;
+	cv::normalize(x_data, norm_x_data, 1.0, 0.0, cv::NORM_INF);
+	return norm_x_data;
 }
 
 void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data) {
@@ -411,9 +423,9 @@ void FeatureExtractor::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_t
 	cv::Mat predictions;
 	svm_model->predict(x_test, predictions);
 
-	std::cout << predictions << std::endl;
-	std::cout << "\n";
-	std::cout << y_test << std::endl;
+	//std::cout << predictions << std::endl;
+	//std::cout << "\n";
+	//std::cout << y_test << std::endl;
 
 	// Score the test
 	float correct = 0;
@@ -486,6 +498,30 @@ std::vector<float> FeatureExtractor::get_svm_detector(std::string model_loc) {
 	return hog_detector;
 }
 
+std::vector<float> FeatureExtractor::get_svm_detector(std::string model_loc,int class_num) {
+	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::load(model_loc);
+	int sv_dim = svm_model->getVarCount();
+	//cv::Ptr<cv::ml::SVM> svm_model = cv::ml::StatModel::load<cv::ml::SVM>(model_loc);
+	cv::Mat support_vectors = svm_model->getSupportVectors();
+	const int sv_total = support_vectors.rows;
+	std::cout << "SV TOTAL = " << sv_total << std::endl;
+	cv::Mat alpha;
+	cv::Mat svidx;
+	alpha = cv::Mat::zeros(sv_total, sv_dim, CV_32F);
+	svidx = cv::Mat::zeros(1, sv_total, CV_64F);
+	cv::Mat resMat;
+	double rho = svm_model->getDecisionFunction(0, alpha, svidx);
+	alpha.convertTo(alpha, CV_32F);
+	resMat = -1 * alpha * support_vectors;
+	std::vector<float> detector;
+	for (int i = 0; i < sv_dim; i++) {
+		detector.push_back(resMat.at<float>(0, i));
+	}
+	detector.push_back(rho);
+	return detector;
+}
+
+
 std::vector<cv::Point> FeatureExtractor::detection_roi(cv::Mat& input, double top_l1, double top_l2,
 																	   double top_r1, double top_r2,
 																	   double bottom_l1, double bottom_l2,
@@ -520,7 +556,6 @@ std::vector<cv::Point> FeatureExtractor::detection_roi(cv::Mat& input, double to
 	}
 	return roi;
 }
-
 
 // Visualizing HOG On image
 // From http://www.juergenwiki.de/work/wiki/doku.php?id=public:hog_descriptor_computation_and_visualization

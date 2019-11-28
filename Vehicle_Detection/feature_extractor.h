@@ -22,7 +22,8 @@ public:
 		double, double,
 		double, double,
 		double, double,
-		double, double
+		double, double,
+		bool
 	);
 	std::vector<cv::Point> detection_roi(cv::Mat&,
 		double, double,
@@ -42,17 +43,18 @@ public:
 	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string,bool);
 	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&,bool);
 	void train_svm(cv::Mat&, cv::Mat&);
-
 	void train_test_svm(
 		const cv::Mat&, const cv::Mat&, 
 		const cv::Mat&, const cv::Mat&,
 		bool
 	);
+	cv::Mat normalize_dataset(cv::Mat&);
 
 	std::pair<cv::Mat, cv::Mat> prepare_training_data(std::vector<cv::Mat>&,std::vector<int>&);
 	cv::Mat get_hogdescriptor_visu(const cv::Mat& color_origImg, std::vector<float>& descriptorValues, const cv::Size& size);
 
 	std::vector<float> get_svm_detector(std::string);
+	std::vector<float> get_svm_detector(std::string,int);
 
 	cv::Ptr<cv::ml::TrainData> train_test_split(cv::Mat& , cv::Mat&, int);
 

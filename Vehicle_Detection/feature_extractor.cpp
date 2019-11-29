@@ -1,5 +1,18 @@
+/// <summary>
+/// Feature Extractor
+/// 
+/// </summary>
 #include "feature_extractor.h"
 
+/// <summary>
+/// Creates a mask given lower and upper bound limitations
+/// Pre:
+/// Mat img must be an image
+/// vector lower_b must be a vector of lower bounds
+/// vector upper_b must be a vector of upper bounds
+/// Post:
+/// Returns the mask that is derived from the input image and the specified bounds
+/// </summary>
 cv::Mat FeatureExtractor::mask_color(cv::Mat& img, std::vector<int>& lower_b, std::vector<int>& upper_b) {
 	cv::Mat lower_bound(lower_b);
 	cv::Mat upper_bound(upper_b);
@@ -8,12 +21,26 @@ cv::Mat FeatureExtractor::mask_color(cv::Mat& img, std::vector<int>& lower_b, st
 	return mask;
 }
 
+/// <summary>
+/// combine_mask  creates a combined bit-wise disjunction of mask1 and mask2
+/// Pre:
+/// Mask1 a mat that is a mask
+/// Mask2 a mat that is a mask
+/// Post:
+/// combined is the bit-wise disjunction of mask1 and 2.
+/// </summary>
 cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 	cv::Mat combined;
+
+	// Finds the per-element bit-wise disjunction of both masks and stores into
+	// combined Mat
 	cv::bitwise_or(mask1, mask2, combined);
 	return combined;
 }
 
+/// <summary>
+/// Propose Region of Interest
+/// </summary>
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_l2,
 													  double top_r1, double top_r2,
 													  double bottom_l1, double bottom_l2,
@@ -65,6 +92,9 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_
 	return output;
 }
 
+/// <summary>
+/// Get Lanes 
+/// </summary>
 cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	input.convertTo(input, CV_8UC1);
 	std::vector<cv::Vec4i> lines;;
@@ -296,6 +326,14 @@ std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset
 	return dataset;
 }
 
+std::pair<std::vector<cv::Mat>, std::vector<int>> FeatureExtractor::load_dataset(std::string dataset_loc,int label, bool debug) {
+	std::vector<cv::Mat> x_data = this->load_images(dataset_loc, debug);
+	std::vector<int> y_data(x_data.size(), label);
+	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = { x_data,y_data };
+	return dataset;
+}
+
+
 std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc,bool debug) {
 	int count = 0;
 	std::vector<cv::Mat> images;
@@ -376,8 +414,9 @@ cv::Mat FeatureExtractor::normalize_dataset(cv::Mat& x_data) {
 	return norm_x_data;
 }
 
-void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data) {
-	printf("Training SVM\n"); 
+void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data,std::string model_fname) {
+	printf("------{x_data size = %i}==={y_data size = %i}---------", x_data.rows, y_data.rows);
+	printf("Training SVM\n");
 	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::create();
 	// hyper param setup
 	svm_model->setCoef0(0.0);
@@ -386,17 +425,19 @@ void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data) {
 	svm_model->setNu(0.5);
 	svm_model->setP(0.1);
 	svm_model->setC(0.01);
-	//svm_model->setType(cv::ml::SVM::EPS_SVR);
-	svm_model->setType(cv::ml::SVM::C_SVC);
+	svm_model->setType(cv::ml::SVM::NU_SVR);
+	//svm_model->setType(cv::ml::SVM::C_SVC);
+	//svm_model->setType(cv::ml::SVM::ONE_CLASS);
 	svm_model->setKernel(cv::ml::SVM::LINEAR);
 	svm_model->setTermCriteria(cv::TermCriteria(CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3));
 	svm_model->train(x_data, cv::ml::ROW_SAMPLE, y_data);
-	svm_model->save("model.yaml");
+	svm_model->save(model_fname);
 	printf("-- Training Complete -- \n");
 }
 
 void FeatureExtractor::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_train, 
-									  const cv::Mat& x_test, const cv::Mat& y_test, bool save_model) {
+									  const cv::Mat& x_test, const cv::Mat& y_test,
+									  bool save_model, std::string model_fname) {
 	printf(" -------- Training SVM ---------\n");
 	printf("x_train size = %i\n", x_train.rows);
 	printf("y_train size = %i\n", y_train.rows);
@@ -410,13 +451,14 @@ void FeatureExtractor::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_t
 	svm_model->setNu(0.5);
 	svm_model->setP(0.1);
 	svm_model->setC(0.01);
-	//svm_model->setType(cv::ml::SVM::EPS_SVR);
-	svm_model->setType(cv::ml::SVM::C_SVC);
+	svm_model->setType(cv::ml::SVM::NU_SVR);
+	//svm_model->setType(cv::ml::SVM::C_SVC);
+	//svm_model->setType(cv::ml::SVM::ONE_CLASS);
 	svm_model->setKernel(cv::ml::SVM::LINEAR);
 	svm_model->setTermCriteria(cv::TermCriteria(CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3));
 	svm_model->train(x_train, cv::ml::ROW_SAMPLE, y_train);
 	if (save_model) {
-		svm_model->save("model.yaml");
+		svm_model->save(model_fname);
 	}
 	printf("-- Training Complete -- \n");
 
@@ -440,7 +482,7 @@ void FeatureExtractor::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_t
 	}
 	float score = correct / static_cast<float>(predictions.rows);
 	//std::cout << "SVM Test Accuracy = " << score << std::endl;
-	printf("SVM Test Accuracy = %f", score);
+	printf("SVM Test Accuracy = %f\n", score);
 }
 
 cv::Ptr<cv::ml::TrainData> FeatureExtractor::train_test_split(cv::Mat& x_data, cv::Mat& y_data, int test_size) {

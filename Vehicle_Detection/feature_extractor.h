@@ -41,13 +41,21 @@ public:
 	void show_image(cv::Mat&,int,int,int);
 
 	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string,std::string,bool);
+	std::pair<std::vector<cv::Mat>, std::vector<int>> load_dataset(std::string, int, bool);
+
 	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&,bool);
-	void train_svm(cv::Mat&, cv::Mat&);
+	
+	void train_svm(
+		cv::Mat&, 
+		cv::Mat&, 
+		std::string model_fname = ("model.yaml")
+	);
 	void train_test_svm(
 		const cv::Mat&, const cv::Mat&, 
 		const cv::Mat&, const cv::Mat&,
-		bool
+		bool, std::string model_fname = ("model.yaml")
 	);
+
 	cv::Mat normalize_dataset(cv::Mat&);
 
 	std::pair<cv::Mat, cv::Mat> prepare_training_data(std::vector<cv::Mat>&,std::vector<int>&);

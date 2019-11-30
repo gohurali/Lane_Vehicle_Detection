@@ -29,3 +29,5 @@ SVM Test Accuracy = 0.965000
 **Hough Transform for Lane Detection**
 ![demo](outputs/detected_lanes_py_5.gif "demo")
 
+**Histogram of Oriented Gradients & SVM for Vehicle Detection**
+![demo](outputs/detected_vehicles_1 "demo")

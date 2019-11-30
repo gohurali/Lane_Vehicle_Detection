@@ -604,6 +604,34 @@ std::vector<cv::Point> FeatureExtractor::detection_roi(cv::Mat& input, double to
 	return roi;
 }
 
+cv::Mat FeatureExtractor::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, std::vector<cv::Point>& roi,bool include_all_bboxes) {
+	cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
+	cv::Mat cropped_im = img(roi_im);
+	std::vector<cv::Rect> found_locations;
+	std::vector<double> confidence;
+	detector.detectMultiScale(cropped_im, found_locations, confidence, 0.0, cv::Size(8, 8), cv::Size(0, 0), 1.2632, 2.0);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
+	std::vector<float> confidence2;
+	for (const double conf : confidence) {
+		confidence2.push_back(static_cast<float>(conf));
+	}
+	std::vector<int> keep_vec;
+	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
+	cv::dnn::NMSBoxes(found_locations, confidence2, 0.1f, 0.1f, keep_vec);//0.4f, 0.3f, keep_vec);
+
+	if (include_all_bboxes) {
+		for (cv::Rect r : found_locations) {
+			cv::rectangle(cropped_im, r, cv::Scalar(0, 255, 0), 2);
+		}
+	}
+
+	for (const int idx : keep_vec) {
+		cv::Rect curr_rect = found_locations[idx];
+		cv::rectangle(cropped_im, curr_rect, cv::Scalar(0, 0, 255), 2);
+	}
+	
+	cropped_im.copyTo(img(roi_im));
+	return img;
+}
 
 
 std::vector<cv::Rect> FeatureExtractor::sliding_window(cv::Mat& img, cv::Size& win_stride, cv::Size& window_size, float scale, const cv::Ptr <cv::ml::SVM>& model) {
@@ -627,7 +655,7 @@ std::vector<cv::Rect> FeatureExtractor::sliding_window(cv::Mat& img, cv::Size& w
 			for (int col = 0; col+win_stride.width <= gray_im.cols - win_stride.width; col+=win_stride.width) {
 				cv::Rect curr_window(col, row, window_size.width, window_size.height);
 				if (curr_window.x >= 0 && curr_window.y >= 0 && curr_window.width + curr_window.x < img.cols && curr_window.height + curr_window.y < img.rows){
-					cv::Mat curr_patch = gray_im(curr_window);
+					cv::Mat curr_patch = dest(curr_window);
 					hog.compute(curr_patch, descriptors, win_stride, cv::Size(0, 0), loc_pts);
 					cv::Mat prediction;
 					cv::Mat desc(descriptors);

@@ -28,10 +28,8 @@ std::string type2str(int type) {
 int main() {
 
 	// -------------- Configuration Parameters --------------
-	
 	bool perform_test_svm = false;
 	bool seperate_svm_train = false; // SVMs for each label
-	
 	bool big_im = true;
 	std::string model_file_name = "";
 	if (big_im) {
@@ -41,13 +39,12 @@ int main() {
 		model_file_name = "model_small.yaml";
 	}
 
-	bool single_im_debug = true;
+	bool single_im_debug = false;
 	std::string car_dataset_loc = "../datasets/svm_data/vehicles/vehicles/";
 	std::string noncar_dataset_loc = "../datasets/svm_data/non-vehicles/non-vehicles/";
-	std::string single_test = "../datasets/udacity_challenge_video/challenge_frames/201911271512_5.png";
+	std::string single_test = "../datasets/udacity_challenge_video/challenge_frames/201911271512_3.png";
 	std::string dummy_img = "../datasets/x2_img.png";
 	// -------------- Configuration Parameters --------------
-	
 	
 	FeatureExtractor fe;
 
@@ -146,12 +143,6 @@ int main() {
 				noncar_dataset_loc,
 				false
 			);
-			/*std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(
-				dummy_img,
-				1,
-				false,
-				1
-			);*/
 
 			// Obtain features -- HOG
 			std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first, false);
@@ -185,112 +176,59 @@ int main() {
 	}
 	else {
 		printf("Trained SVM Exists! Opening model...\n");
-		cv::Mat single_im;
-		cv::Mat color_im;
 		if (single_im_debug) {
+			cv::Mat single_im;
+			cv::Mat color_im;
 			single_im = cv::imread(single_test);
 			cv::resize(single_im, single_im, cv::Size(672,378));//(896, 504));//single_im//resize(352,624);
-			//cv::GaussianBlur(single_im, single_im, cv::Size(7, 7), 5, 10);
+			
 
 			printf("Resized to r = %i ----- c = %i\n", single_im.rows, single_im.cols);
 			color_im = single_im.clone();
 			cv::cvtColor(single_im, single_im, cv::COLOR_BGR2GRAY);
+
+			std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = fe.get_svm_detector(model_file_name, 1);
+			cv::HOGDescriptor hog;
+			hog.winSize = cv::Size(64, 64);
+			hog.setSVMDetector(svm_items.second);
+
+			std::vector<cv::Point> roi = {
+											cv::Point(120,175),
+											cv::Point(672,175),
+											cv::Point(120,300),
+											cv::Point(672,300)
+			};
+			color_im = fe.vehicle_detect(color_im, hog, roi);
+
+			fe.show_image(color_im, 1, 1, 5000);
+			cv::imwrite("current_detections.png", color_im);
 		}
+		else {
 
-		//std::vector<float> svm_detector = fe.get_svm_detector(model_file_name);
-		std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = fe.get_svm_detector(model_file_name,1);
+			std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = fe.get_svm_detector(model_file_name, 1);
+			cv::HOGDescriptor hog;
+			hog.winSize = cv::Size(64, 64);
+			hog.setSVMDetector(svm_items.second);
 
+			std::vector<cv::Point> roi = {
+											cv::Point(120,175),
+											cv::Point(672,175),
+											cv::Point(120,300),
+											cv::Point(672,300)
+										 };
 
-		printf("size of detector is = %i", (int)svm_items.second.size());
-		/*for (auto i : svm_detector) {
-			printf("%f , \n", i);
-		}*/
-		cv::HOGDescriptor hog;
-		hog.winSize = cv::Size(64, 64);//(40, 40)
-		printf("Setting SVM to HOG -------------> \n");
-		hog.setSVMDetector(svm_items.second);
-		printf("Getting ROI Coordinates ! \n");
-		//fe.show_image(single_im, 1, 1, 5000);
-		
-		//fe.show_image(single_im, 1, 1, 5000);
-		/*printf("single im r = %i ---- c = %i\n", single_im.rows, single_im.cols);
-		single_im.resize(64, 64);
-		printf("single im r = %i ---- c = %i\n", single_im.rows, single_im.cols);*/
-
-		printf("About to inference!\n");
-		
-		std::vector<double> location_confidence;
-		single_im.convertTo(single_im, CV_8U);
-		
-		std::string mat_type = type2str(single_im.type());
-		std::cout << "--------------------> " << mat_type << std::endl;
-		/*std::vector<cv::Point> roi = {
-										cv::Point(120,250),
-										cv::Point(896,250),
-										cv::Point(120,504),
-										cv::Point(896,504) 
-									};*/
-		std::vector<cv::Point> roi = {
-										cv::Point(120,175),
-										cv::Point(672,175),
-										cv::Point(120,300),
-										cv::Point(672,300)
-		};
-		//std::cout << "x = " << roi[0].x << std::endl;
-		//std::cout << "y = " << roi[0].y << std::endl;
-		//std::cout << "width = " << roi[1].x - roi[0].x << std::endl;
-		//std::cout << "height = " << roi[2].y - roi[0].y << std::endl;
-		cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
-
-		cv::Mat cropped_im = color_im(roi_im);
-		//std::cout << roi_im << std::endl;
-		//cv::rectangle(color_im, roi_im, cv::Scalar(0, 255, 0), 2);
-		//fe.show_image(color_im, 1, 1, 8000);
-		cv::DetectionROI roi_obj;
-		roi_obj.locations = roi;
-		std::vector<cv::DetectionROI> roi_vec = { roi_obj };
-		printf("----- Lets Detect ------------\n");
-		cv::Size w_s = { 32, 32 };
-		cv::Size w_sz = { 64, 64 };
-		//std::vector<cv::Rect> found_locations = fe.sliding_window(color_im, w_s,w_sz, 1.05, svm_items.first);
-		std::vector<cv::Rect> found_locations;
-		std::vector<double> confidence;
-		// Set the models from the training to 0, test to see if we get  any bounding boxes. 
-		hog.detectMultiScale(cropped_im, found_locations,confidence, 0.0, cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
-
-		std::vector<float> confidence2;
-		for (const double conf : confidence) {
-			confidence2.push_back(static_cast<float>(conf));
+			std::string path = "../datasets/udacity_challenge_video/challenge_frames/";
+			int count = 0;
+			for (const auto& entry : std::filesystem::directory_iterator(path)) {
+				std::string current_im_loc = entry.path().string();
+				cv::Mat img = cv::imread(current_im_loc);
+				cv::resize(img, img, cv::Size(672, 378));
+				img = fe.vehicle_detect(img, hog, roi);
+				std::string num_name = std::to_string(count);
+				cv::imwrite("vehicle_detection_imgs/" + num_name + ".png", img);
+				count++;
+			}
 		}
-		std::vector<int> keep_vec;
-		cv::dnn::dnn4_v20190902::MatShape kept_boxes;
-		cv::dnn::NMSBoxes(found_locations, confidence2, 0.4f, 0.3f, keep_vec);
-		for (const int idx : keep_vec) {
-			std::cout << idx << std::endl;
-		}
-		//cv::dnn::dnn4_v20190902::NMSBoxes(found_locations, confidence, 0.3f, 0.4f,kept_boxes);
-		//hog.detectMultiScale(single_im, found_locations,0.0,cv::Size(16,16),cv::Size(0,0),1.11,2.0);
-		//hog.detectMultiScaleROI(cropped_im, found_locations, roi_vec,2.0);
-		//hog.detectROI(cropped_im,roi, found_locations,location_confidence);
-		printf("----- Done Detect ------------\n");
-		for (double i : location_confidence) {
-			printf("%d -- \n", i);
-		}
-		printf("Size of found locations = %i", found_locations.size());
-
-		for (const int idx : keep_vec) {
-			cv::Rect curr_rect = found_locations[idx];
-			cv::rectangle(cropped_im, curr_rect, cv::Scalar(0, 0, 255), 2);
-		}
-
-		cropped_im.copyTo(color_im(roi_im));
-
-		/*for (cv::Rect rec : found_locations) {
-			cv::rectangle(cropped_im, rec, cv::Scalar(0, 0, 255), 2);
-		}*/
-		cv::cvtColor(single_im, single_im, cv::COLOR_GRAY2RGB);
-		fe.show_image(color_im, 1, 1, 5000);
-		cv::imwrite("current_detections.png", color_im);
 	}
 	return 0;
 }

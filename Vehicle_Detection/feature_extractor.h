@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <vector>
 #include <sstream>
+#include <string>
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
@@ -41,8 +42,6 @@ public:
 	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&);
 	cv::Point extrapolate_line(cv::Vec4i&, int);
 	void show_image(cv::Mat&,int,int,int);
-
-	
 
 	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&,bool);
 	
@@ -85,6 +84,13 @@ public:
 		int, 
 		bool,
 		int num_imgs = (200)
+	);
+
+	cv::Mat vehicle_detect(
+		cv::Mat&,
+		cv::HOGDescriptor&,
+		std::vector<cv::Point>&,
+		bool include_all_bboxes = (false)
 	);
 
 private:

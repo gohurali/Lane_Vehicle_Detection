@@ -1,31 +1,48 @@
 #include "feature_extractor.h"
-#include <string>
-#include <iostream>
 
-std::string type2str(int type) {
-	std::string r;
 
-	uchar depth = type & CV_MAT_DEPTH_MASK;
-	uchar chans = 1 + (type >> CV_CN_SHIFT);
-
-	switch (depth) {
-	case CV_8U:  r = "8U"; break;
-	case CV_8S:  r = "8S"; break;
-	case CV_16U: r = "16U"; break;
-	case CV_16S: r = "16S"; break;
-	case CV_32S: r = "32S"; break;
-	case CV_32F: r = "32F"; break;
-	case CV_64F: r = "64F"; break;
-	default:     r = "User"; break;
-	}
-
-	r += "C";
-	r += (chans + '0');
-
-	return r;
-}
 
 int main() {
+	ConfigurationParameters config;
+	FeatureExtractor fe;
+
+	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = fe.get_svm_detector(config.model_name, 1);
+	cv::HOGDescriptor hog;
+	hog.winSize = cv::Size(64, 64);
+	hog.setSVMDetector(svm_items.second);
+
+	std::vector<cv::Point> roi = {
+									cv::Point(120,175),
+									cv::Point(672,175),
+									cv::Point(120,300),
+									cv::Point(672,300)
+	};
+
+	int num = 0;
+	for (const auto& entry : std::filesystem::directory_iterator(config.test_data_loc)) {
+		//std::cout << entry.path() << std::endl;
+		std::string current_im_loc = entry.path().string();
+		cv::Mat img_frame = cv::imread(current_im_loc);
+		cv::resize(img_frame, img_frame, cv::Size(672, 378));
+		cv::Mat ld_out = fe.lane_detect(img_frame);
+		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(img_frame, hog, roi);
+		// Get ROI crop
+		cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
+		std::vector<cv::Rect> adjusted_bboxes = fe.respace(bboxes, roi_im);
+
+		for (const cv::Rect& box : adjusted_bboxes) {
+			cv::rectangle(ld_out, box, cv::Scalar(0, 0, 255), 2);
+		}
+		std::string num_name = std::to_string(num);
+		cv::imwrite("ld_vd_imgs/" + num_name + ".png", ld_out);
+		num++;
+	}
+	return 0;
+}
+
+
+
+int vehicle_detection() {
 
 	// -------------- Configuration Parameters --------------
 	bool perform_test_svm = false;
@@ -172,7 +189,6 @@ int main() {
 				fe.train_svm(transformed_dataset.first, transformed_dataset.second);
 			}
 		}
-			
 	}
 	else {
 		printf("Trained SVM Exists! Opening model...\n");
@@ -198,7 +214,7 @@ int main() {
 											cv::Point(120,300),
 											cv::Point(672,300)
 			};
-			color_im = fe.vehicle_detect(color_im, hog, roi);
+			color_im = fe.vehicle_detect(color_im, hog, roi,false);
 
 			fe.show_image(color_im, 1, 1, 5000);
 			cv::imwrite("current_detections.png", color_im);
@@ -233,29 +249,29 @@ int main() {
 	return 0;
 }
 
-//int main() {
-//	bool debug = false;
-//	
-//	std::string path = "../datasets/udacity_challenge_video/challenge_frames/";
-//	std::string single_im_path = "../datasets/udacity_challenge_video/challenge_frames/201911271512_2.png";
-//	FeatureExtractor fe;
-//
-//	if (debug) {
-//		cv::Mat input = cv::imread(single_im_path);
-//		cv::Mat output = fe.lane_detect(input);
-//		fe.show_image(output, 1, 1, 20000);
-//	}
-//	else {
-//		int num = 0;
-//		for (const auto& entry : std::filesystem::directory_iterator(path)) {
-//			//std::cout << entry.path() << std::endl;
-//			std::string current_im_loc = entry.path().string();
-//			cv::Mat input = cv::imread(current_im_loc);
-//			cv::Mat output = fe.lane_detect(input);
-//			std::string num_name = std::to_string(num);
-//			cv::imwrite("outputs/" + num_name + ".png", output);
-//			num++;
-//		}
-//	}
-//	return 0;
-//}
+int lane_detection() {
+	bool debug = false;
+	
+	std::string path = "../datasets/udacity_challenge_video/challenge_frames/";
+	std::string single_im_path = "../datasets/udacity_challenge_video/challenge_frames/201911271512_2.png";
+	FeatureExtractor fe;
+
+	if (debug) {
+		cv::Mat input = cv::imread(single_im_path);
+		cv::Mat output = fe.lane_detect(input);
+		fe.show_image(output, 1, 1, 20000);
+	}
+	else {
+		int num = 0;
+		for (const auto& entry : std::filesystem::directory_iterator(path)) {
+			//std::cout << entry.path() << std::endl;
+			std::string current_im_loc = entry.path().string();
+			cv::Mat input = cv::imread(current_im_loc);
+			cv::Mat output = fe.lane_detect(input);
+			std::string num_name = std::to_string(num);
+			cv::imwrite("outputs/" + num_name + ".png", output);
+			num++;
+		}
+	}
+	return 0;
+}

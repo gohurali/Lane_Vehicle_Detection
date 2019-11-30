@@ -13,10 +13,22 @@
 #include <filesystem>
 #include <vector>
 #include <sstream>
+#include <iostream>
 #include <string>
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
+
+struct ConfigurationParameters {
+	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_frames/";
+
+
+	// Vehicle Detection Parameters
+	std::string model_name = "model_big.yaml";
+	std::string car_dataset_loc = "../datasets/svm_data/vehicles/vehicles/";
+	std::string noncar_dataset_loc = "../datasets/svm_data/non-vehicles/non-vehicles/";
+};
+
 class FeatureExtractor {
 public:
 	cv::Mat mask_color(cv::Mat&, std::vector<int>&,std::vector<int>&);
@@ -38,8 +50,8 @@ public:
 
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
 	cv::Mat lane_detect(cv::Mat&);
-	cv::Vec4i find_lowest_point(std::vector<cv::Vec4i>&);
-	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&);
+	cv::Vec4i find_lowest_point(std::vector<cv::Vec4i>&,int middle_pt = (650));
+	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&, int middle_pt = (650));
 	cv::Point extrapolate_line(cv::Vec4i&, int);
 	void show_image(cv::Mat&,int,int,int);
 
@@ -92,7 +104,17 @@ public:
 		std::vector<cv::Point>&,
 		bool include_all_bboxes = (false)
 	);
+	std::vector<cv::Rect> vehicle_detect_bboxes(
+		cv::Mat&,
+		cv::HOGDescriptor&,
+		std::vector<cv::Point>&,
+		bool include_all_bboxes = (false)
+	);
 
+	std::vector<cv::Rect> respace(
+		std::vector<cv::Rect>&,
+		cv::Rect&
+	);
 private:
 	std::vector<cv::Mat> load_images(std::string,bool,int num_imgs = (200));
 	std::vector<std::string> split(const std::string&, char);

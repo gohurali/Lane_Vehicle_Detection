@@ -13,6 +13,9 @@ We developed a lane detection and vehicle detection program by utilizing various
 
 Our C++ solution requires C++17
 
+![demo](outputs/ld_vd_1.gif "demo")
+
+
 #### Support Vector Machine Training
 
 ```

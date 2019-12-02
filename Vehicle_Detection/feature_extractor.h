@@ -18,21 +18,23 @@
 #include <stdio.h>
 #include <iostream>
 #include <math.h>
-
-struct ConfigurationParameters {
-	//"../datasets/test_data/singapore_snippet1/"; //"../datasets/udacity_challenge_video/challenge_2_frames/";
-	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_2_frames/";
-
-	// Vehicle Detection Parameters
-	std::string model_name = "model_big.yaml";
-	std::string car_dataset_loc = "../datasets/svm_data/vehicles/vehicles/";
-	std::string noncar_dataset_loc = "../datasets/svm_data/non-vehicles/non-vehicles/";
-};
+#include "config.h"
 
 class FeatureExtractor {
 public:
 	cv::Mat mask_color(cv::Mat&, std::vector<int>&,std::vector<int>&);
 	cv::Mat combine_mask(cv::Mat&, cv::Mat&);
+
+	cv::Mat remove_middle_polygons(
+		cv::Mat&, 
+		cv::Mat&
+	);
+
+	cv::Mat create_inner_cover_mask(
+		cv::Mat&,
+		std::vector<std::pair<float, float>>&,
+		bool debug = (false)
+	);
 
 	cv::Mat propose_roi(
 		cv::Mat&, 
@@ -56,8 +58,6 @@ public:
 		bool debug = (false)
 	);
 
-	
-	
 	cv::Mat lane_detect(
 		cv::Mat&
 	);
@@ -69,7 +69,9 @@ public:
 		cv::Mat&,
 		int,
 		int,
-		std::vector<std::pair<float, float>>&
+		std::vector<std::pair<float, float>>&,
+		ConfigurationParameters& config,
+		bool remove_between_lanes = (false)
 	);
 
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);

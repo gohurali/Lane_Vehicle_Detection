@@ -11,22 +11,7 @@ int main() {
 	hog.setSVMDetector(svm_items.second);
 	printf("---- Model opened ----\n");
 	
-	std::vector<std::pair<float, float>> ld_roi = {
-									std::pair(0,1),
-									std::pair(1,1),
-									std::pair(0.518,0.59),
-									std::pair(0.518,0.59)
-	};
-	
-	std::vector<cv::Point> vd_roi = {
-									cv::Point(120,175),
-									cv::Point(672,175),
-									cv::Point(120,300),
-									cv::Point(672,300)
-	};
-
 	for (const auto& entry : std::filesystem::directory_iterator(config.test_data_loc)) {
-		//std::cout << entry.path() << std::endl;
 		std::string current_im_loc = entry.path().string();
 		std::cout << current_im_loc << std::endl;
 		std::string name_num = fe.get_name_num(current_im_loc);
@@ -34,11 +19,30 @@ int main() {
 		cv::Mat img_frame = cv::imread(current_im_loc);
 		cv::resize(img_frame, img_frame, cv::Size(672, 378));
 
-		cv::Mat ld_out = fe.lane_detect(img_frame,600,800,ld_roi);
+		cv::Mat ld_out = fe.lane_detect(
+			img_frame,
+			300,
+			415,
+			config.ld_roi,
+			config,
+			true
+		);
 		
-		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(img_frame, hog, vd_roi);
-		// Get ROI crop
-		cv::Rect roi_im(vd_roi[0].x, vd_roi[0].y, vd_roi[1].x - vd_roi[0].x, vd_roi[2].y - vd_roi[0].y);
+		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(
+			img_frame, 
+			hog, 
+			config.vd_roi,
+			false
+		);
+
+		// Since bboxes are in the cropped image space coordinates
+		// they need to be rescaled to the coordinates of the original image size
+		cv::Rect roi_im(
+			config.vd_roi[0].x, 
+			config.vd_roi[0].y, 
+			config.vd_roi[1].x - config.vd_roi[0].x, 
+			config.vd_roi[2].y - config.vd_roi[0].y
+		);
 		std::vector<cv::Rect> adjusted_bboxes = fe.respace(bboxes, roi_im);
 
 		for (const cv::Rect& box : adjusted_bboxes) {
@@ -51,7 +55,6 @@ int main() {
 	}
 	printf("[LOG]: Dection done!\n");
 	return 0;
-
 }
 
 

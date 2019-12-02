@@ -31,6 +31,59 @@ cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 	return combined;
 }
 
+cv::Mat FeatureExtractor::remove_middle_polygons(cv::Mat& edge_im, cv::Mat& mask) {
+	for (int row = 0; row < edge_im.rows; row++) {
+		for (int col = 0; col < edge_im.cols; col++) {
+			int edge_curr_pxl = edge_im.at<uchar>(row, col);
+			int mask_curr_pxl = mask.at<uchar>(row, col);
+			if (edge_curr_pxl == 255 && mask_curr_pxl == 255) {
+				edge_im.at<uchar>(row, col) = 0;
+			}
+		}
+	}
+	return edge_im;
+}
+
+cv::Mat FeatureExtractor::create_inner_cover_mask(cv::Mat& input, std::vector<std::pair<float, float>>& roi, bool debug) {
+
+	cv::Point top_left_pt;
+	top_left_pt.x = input.cols * roi[0].first;
+	top_left_pt.y = input.rows * roi[0].second;
+
+	cv::Point top_right_pt;
+	top_right_pt.x = input.cols * roi[1].first;
+	top_right_pt.y = input.rows * roi[1].second;
+
+	cv::Point bottom_left_pt;
+	bottom_left_pt.x = input.cols * roi[2].first;
+	bottom_left_pt.y = input.rows * roi[2].second;
+
+	cv::Point bottom_right_pt;
+	bottom_right_pt.x = input.cols * roi[3].first;
+	bottom_right_pt.y = input.rows * roi[3].second;
+
+	cv::Point corners[1][4];
+	corners[0][0] = bottom_left_pt;
+	corners[0][1] = top_left_pt;
+	corners[0][2] = top_right_pt;
+	corners[0][3] = bottom_right_pt;
+
+	const cv::Point* corner_list[1] = { corners[0] };
+	int num_points = 4;
+	int num_polygons = 1;
+
+	cv::Mat mask = cv::Mat::zeros(cv::Size(input.cols, input.rows), CV_64F);
+
+	// Debug Draw Methods
+	if (debug) {
+		cv::line(input, bottom_left_pt, top_right_pt, 255);
+		cv::line(input, bottom_right_pt, top_left_pt, 255);
+		this->show_image(input, 1, 1, 5000);
+	}
+	cv::fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255));
+	return mask;
+}
+
 /// Propose Region of Interest
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<float, float>>& roi,bool debug) {
 	input.convertTo(input, CV_64F);
@@ -454,7 +507,7 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	return top_line;
 }
 
-cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int r_threshold, std::vector<std::pair<float, float>>& roi) {
+cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int r_threshold, std::vector<std::pair<float, float>>& roi,ConfigurationParameters& config, bool remove_between_lanes) {
 	// Convert to HLS color space
 	cv::Mat hls_im;
 	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
@@ -477,7 +530,7 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int
 
 	//Blur
 	cv::Mat blurred;
-	cv::GaussianBlur(combined, blurred, { 7,7 }, 0);
+	cv::GaussianBlur(combined, blurred, { 3,3 }, 0);
 
 	// Edge detect
 	cv::Mat edges;
@@ -490,6 +543,14 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int
 		roi,
 		false
 	);
+
+	if (remove_between_lanes) {
+		cv::Mat inner_mask = this->create_inner_cover_mask(roi_im, config.inner_roi);
+		roi_im.convertTo(roi_im, CV_8UC1);
+		inner_mask.convertTo(inner_mask, CV_8UC1);
+		roi_im = this->remove_middle_polygons(roi_im, inner_mask);
+	}
+
 	//this->show_image(roi_im, 1, 1, 5000);
 
 	rgb_im = this->get_lanes(roi_im, rgb_im);
@@ -519,7 +580,7 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pai
 
 	//Blur
 	cv::Mat blurred;
-	cv::GaussianBlur(combined, blurred, { 7,7 }, 0);
+	cv::GaussianBlur(combined, blurred, { 3,3 }, 0);
 
 	// Edge detect
 	cv::Mat edges;
@@ -537,6 +598,7 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pai
 	rgb_im = this->get_lanes(roi_im, rgb_im);
 	return rgb_im;
 }
+
 cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
 	// Convert to HLS color space
 	cv::Mat hls_im;
@@ -560,7 +622,7 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
 
 	//Blur
 	cv::Mat blurred;
-	cv::GaussianBlur(combined, blurred, { 7,7 }, 0);
+	cv::GaussianBlur(combined, blurred, { 3,3 }, 0);
 
 	// Edge detect
 	cv::Mat edges;

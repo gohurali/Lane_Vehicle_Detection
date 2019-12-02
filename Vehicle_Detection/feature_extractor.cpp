@@ -1,10 +1,6 @@
-/// <summary>
-/// Feature Extractor
-/// 
-/// </summary>
+/// FeatureExtractor 
 #include "feature_extractor.h"
 
-/// <summary>
 /// Creates a mask given lower and upper bound limitations
 /// Pre:
 /// Mat img must be an image
@@ -12,7 +8,6 @@
 /// vector upper_b must be a vector of upper bounds
 /// Post:
 /// Returns the mask that is derived from the input image and the specified bounds
-/// </summary>
 cv::Mat FeatureExtractor::mask_color(cv::Mat& img, std::vector<int>& lower_b, std::vector<int>& upper_b) {
 	cv::Mat lower_bound(lower_b);
 	cv::Mat upper_bound(upper_b);
@@ -21,14 +16,12 @@ cv::Mat FeatureExtractor::mask_color(cv::Mat& img, std::vector<int>& lower_b, st
 	return mask;
 }
 
-/// <summary>
 /// combine_mask  creates a combined bit-wise disjunction of mask1 and mask2
 /// Pre:
 /// Mask1 a mat that is a mask
 /// Mask2 a mat that is a mask
 /// Post:
 /// combined is the bit-wise disjunction of mask1 and 2.
-/// </summary>
 cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 	cv::Mat combined;
 
@@ -38,9 +31,7 @@ cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 	return combined;
 }
 
-/// <summary>
 /// Propose Region of Interest
-/// </summary>
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<float, float>>& roi,bool debug) {
 	input.convertTo(input, CV_64F);
 
@@ -137,9 +128,86 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_
 	return output;
 }
 
-/// <summary>
 /// Get Lanes 
-/// </summary>
+cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output, int l_threshold, int r_threshold) {
+	input.convertTo(input, CV_8UC1);
+	std::vector<cv::Vec4i> lines;
+	//lines.convertTo(lines, CV_8UC1);
+	int rho = 1;
+	double theta = M_PI / 180;
+	int threshold = 20;
+	int minLineLength = 20;
+	int maxLineGap = 300;
+	cv::HoughLinesP(input, lines, rho, theta, threshold, minLineLength, maxLineGap);
+	if (lines.size() == 0) {
+		return output;
+	}
+
+	std::vector<cv::Vec4i> hough_lines;
+	for (int i = 0; i < lines.size(); i++) {
+		cv::Vec4i pts = lines[i];
+		cv::Point x1y1(pts[0], pts[1]);
+		cv::Point x2y2(pts[2], pts[3]);
+		hough_lines.push_back(pts);
+		//cv::line(output, x1y1,x2y2, cv::Scalar(0, 0, 255));
+	}
+	//this->show_image(output, 1, 1, 5000);
+
+	// Look for highest point
+	cv::Vec4i top_line = this->find_highest_point(hough_lines, input.cols / 2, true);
+	cv::line(
+		output,
+		cv::Point(top_line[0], top_line[1]),
+		cv::Point(top_line[2], top_line[3]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+
+	// Look for the lowest point
+	cv::Vec4i min_points = this->find_lowest_point(hough_lines, input.cols / 2, true);
+
+	// Extrapolate the right lane
+	cv::Vec4i current_right_lane = { min_points[2],min_points[3],top_line[2],top_line[3] };
+	//std::cout << " Running \n";
+	//std::cout << current_right_lane << std::endl;
+	cv::Point adjusted_right_min = this->extrapolate_line(current_right_lane, min_points[1]);
+	//std::cout << adjusted_right_min << std::endl;
+
+	cv::line(
+		output,
+		cv::Point(min_points[0], min_points[1]),
+		cv::Point(top_line[0], top_line[1]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+
+	cv::line(
+		output,
+		cv::Point(adjusted_right_min.x, adjusted_right_min.y),
+		cv::Point(top_line[2], top_line[3]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+
+	cv::Point corners[1][4];
+	corners[0][0] = cv::Point(min_points[0], min_points[1]);
+	corners[0][1] = cv::Point(adjusted_right_min.x, adjusted_right_min.y);
+	corners[0][2] = cv::Point(top_line[2], top_line[3]);
+	corners[0][3] = cv::Point(top_line[0], top_line[1]);
+
+	const cv::Point* corner_list[1] = { corners[0] };
+	int num_points = 4;
+	int num_polygons = 1;
+	cv::Mat overlay;
+	output.copyTo(overlay);
+	cv::fillPoly(overlay, corner_list, &num_points, num_polygons, cv::Scalar(0, 255, 0));
+	double alpha = 0.3;
+
+	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
+	return output;
+}
+
+
 cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	input.convertTo(input, CV_8UC1);
 	std::vector<cv::Vec4i> lines;
@@ -165,7 +233,7 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	//this->show_image(output, 1, 1, 5000);
 
 	// Look for highest point
-	cv::Vec4i top_line = this->find_highest_point(hough_lines,input.cols/2);
+	cv::Vec4i top_line = this->find_highest_point(hough_lines,input.cols/2, true);
 	cv::line(
 		output, 
 		cv::Point(top_line[0], top_line[1]), 
@@ -175,7 +243,7 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	);
 
 	// Look for the lowest point
-	cv::Vec4i min_points = this->find_lowest_point(hough_lines, input.cols / 2);
+	cv::Vec4i min_points = this->find_lowest_point(hough_lines, input.cols / 2, true);
 
 	// Extrapolate the right lane
 	cv::Vec4i current_right_lane = { min_points[2],min_points[3],top_line[2],top_line[3]};
@@ -228,7 +296,87 @@ cv::Point FeatureExtractor::extrapolate_line(cv::Vec4i& line, int y_pt) {
 	return cv::Point(x_pt, y_pt);
 }
 
-cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int middle_pt) {
+
+cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int l_threshold, int r_threshold) {
+	cv::Mat lines(input);
+	std::vector<cv::Point> points;
+	for (int i = 0; i < lines.rows; i++) {
+		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
+		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
+		cv::Point x1y1(pts[0], pts[1]);
+		cv::Point x2y2(pts[2], pts[3]);
+		points.push_back(x1y1);
+		points.push_back(x2y2);
+	}
+
+	cv::Mat points_matrix(points.size(), 2, CV_32S);;
+	for (int i = 0; i < points.size(); i++) {
+		points_matrix.at<int>(i, 0) = points[i].x;
+		points_matrix.at<int>(i, 1) = points[i].y;
+	}
+
+	cv::Point l_min_pt(points_matrix.at<int>(0, 0), 0);
+	cv::Point r_min_pt(points_matrix.at<int>(1, 0), 0);
+	for (int i = 0; i < points_matrix.rows; i++) {
+		int x_pt = points_matrix.at<int>(i, 0);
+		int y_pt = points_matrix.at<int>(i, 1);
+
+		if (x_pt < l_threshold && y_pt > l_min_pt.y) {
+			l_min_pt = cv::Point(x_pt, y_pt);
+		}
+		else if (x_pt > r_threshold&& y_pt > r_min_pt.y) {
+			r_min_pt = cv::Point(x_pt, y_pt);
+		}
+	}
+	cv::Vec4i top_line;
+	top_line[0] = l_min_pt.x;
+	top_line[1] = l_min_pt.y;
+	top_line[2] = r_min_pt.x;
+	top_line[3] = r_min_pt.y;
+	return top_line;
+}
+
+cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, int l_threshold, int r_threshold) {
+	cv::Mat lines(input);
+	std::vector<cv::Point> points;
+	for (int i = 0; i < lines.rows; i++) {
+		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
+		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
+		cv::Point x1y1(pts[0], pts[1]);
+		cv::Point x2y2(pts[2], pts[3]);
+		points.push_back(x1y1);
+		points.push_back(x2y2);
+	}
+
+	cv::Mat points_matrix(points.size(), 2, CV_32S);;
+	for (int i = 0; i < points.size(); i++) {
+		points_matrix.at<int>(i, 0) = points[i].x;
+		points_matrix.at<int>(i, 1) = points[i].y;
+	}
+
+	cv::Point l_max_pt(points_matrix.at<int>(0, 0), 10000);
+	cv::Point r_max_pt(points_matrix.at<int>(1, 0), 10000);
+	for (int i = 0; i < points_matrix.rows; i++) {
+		int x_pt = points_matrix.at<int>(i, 0);
+		int y_pt = points_matrix.at<int>(i, 1);
+
+		if (x_pt < l_threshold && y_pt < l_max_pt.y) {
+			l_max_pt = cv::Point(x_pt, y_pt);
+		}
+		else if (x_pt > r_threshold && y_pt < r_max_pt.y) {
+			r_max_pt = cv::Point(x_pt, y_pt);
+		}
+	}
+	cv::Vec4i top_line;
+	top_line[0] = l_max_pt.x;
+	top_line[1] = l_max_pt.y;
+	top_line[2] = r_max_pt.x;
+	top_line[3] = r_max_pt.y;
+	return top_line;
+}
+
+
+cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int middle_pt, bool use_middle) {
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
@@ -267,7 +415,7 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 	return top_line;
 }
 
-cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, int middle_pt) {
+cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, int middle_pt, bool use_middle) {
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
@@ -305,6 +453,49 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	top_line[3] = r_max_pt.y;
 	return top_line;
 }
+
+cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int r_threshold, std::vector<std::pair<float, float>>& roi) {
+	// Convert to HLS color space
+	cv::Mat hls_im;
+	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
+
+	// Get RGB img
+	cv::Mat rgb_im = input_frame.clone();
+
+	// Get yellow lanes
+	std::vector<int> y_lower_b = { 10, 0, 100 };
+	std::vector<int> y_upper_b = { 40, 255, 255 };
+	cv::Mat yellow_mask = this->mask_color(hls_im, y_lower_b, y_upper_b);
+
+	// Get white lanes
+	std::vector<int> w_lower_b = { 0, 200, 0 };
+	std::vector<int> w_upper_b = { 200, 255, 255 };
+	cv::Mat white_mask = this->mask_color(hls_im, w_lower_b, w_upper_b);
+
+	// Combine
+	cv::Mat combined = this->combine_mask(yellow_mask, white_mask);
+
+	//Blur
+	cv::Mat blurred;
+	cv::GaussianBlur(combined, blurred, { 7,7 }, 0);
+
+	// Edge detect
+	cv::Mat edges;
+	cv::Canny(blurred, edges, 100, 190);
+
+	// From the edges, remove unnecessary edges
+	// propose a region of interest
+	cv::Mat roi_im = this->propose_roi(
+		edges,
+		roi,
+		false
+	);
+	//this->show_image(roi_im, 1, 1, 5000);
+
+	rgb_im = this->get_lanes(roi_im, rgb_im);
+	return rgb_im;
+}
+
 cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pair<float, float>>& roi) {
 	// Convert to HLS color space
 	cv::Mat hls_im;
@@ -784,7 +975,6 @@ void FeatureExtractor::display_num_vehicles(cv::Mat& img,std::vector<cv::Rect>& 
 		cv::Scalar(0, 0, 255)
 	);
 }
-
 
 std::vector<cv::Rect> FeatureExtractor::sliding_window(cv::Mat& img, cv::Size& win_stride, cv::Size& window_size, float scale, const cv::Ptr <cv::ml::SVM>& model) {
 	cv::Mat gray_im;

@@ -21,7 +21,7 @@
 
 struct ConfigurationParameters {
 	//"../datasets/test_data/singapore_snippet1/"; //"../datasets/udacity_challenge_video/challenge_2_frames/";
-	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_frames/";
+	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_2_frames/";
 
 	// Vehicle Detection Parameters
 	std::string model_name = "model_big.yaml";
@@ -56,7 +56,7 @@ public:
 		bool debug = (false)
 	);
 
-	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
+	
 	
 	cv::Mat lane_detect(
 		cv::Mat&
@@ -65,9 +65,37 @@ public:
 		cv::Mat&, 
 		std::vector<std::pair<float, float>>&
 	);
+	cv::Mat lane_detect(
+		cv::Mat&,
+		int,
+		int,
+		std::vector<std::pair<float, float>>&
+	);
 
-	cv::Vec4i find_lowest_point(std::vector<cv::Vec4i>&,int middle_pt = (650));
-	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&, int middle_pt = (650));
+	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
+	cv::Mat get_lanes(cv::Mat&, cv::Mat&, int, int);
+
+	cv::Vec4i find_lowest_point(
+		std::vector<cv::Vec4i>&,
+		int middle_pt = (650),
+		bool use_middle = (true)
+	);
+	cv::Vec4i find_highest_point(
+		std::vector<cv::Vec4i>&, 
+		int middle_pt = (650),
+		bool use_middle = (true)
+	);
+	cv::Vec4i find_lowest_point(
+		std::vector<cv::Vec4i>&, 
+		int l_threshold = (650),
+		int r_threshold = (650)
+	);
+	cv::Vec4i find_highest_point(
+		std::vector<cv::Vec4i>&, 
+		int l_threshold = (650),
+		int r_threshold = (650)
+	);
+
 	cv::Point extrapolate_line(cv::Vec4i&, int);
 	void show_image(cv::Mat&,int,int,int);
 

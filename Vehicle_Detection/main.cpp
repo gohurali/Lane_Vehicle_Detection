@@ -34,7 +34,7 @@ int main() {
 		cv::Mat img_frame = cv::imread(current_im_loc);
 		cv::resize(img_frame, img_frame, cv::Size(672, 378));
 
-		cv::Mat ld_out = fe.lane_detect(img_frame,ld_roi);
+		cv::Mat ld_out = fe.lane_detect(img_frame,600,800,ld_roi);
 		
 		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(img_frame, hog, vd_roi);
 		// Get ROI crop

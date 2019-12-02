@@ -41,6 +41,50 @@ cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 /// <summary>
 /// Propose Region of Interest
 /// </summary>
+cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<float, float>>& roi,bool debug) {
+	input.convertTo(input, CV_64F);
+
+	cv::Point top_left_pt;
+	top_left_pt.x = input.cols * roi[0].first;
+	top_left_pt.y = input.rows * roi[0].second;
+
+	cv::Point top_right_pt;
+	top_right_pt.x = input.cols * roi[1].first;
+	top_right_pt.y = input.rows * roi[1].second;
+
+	cv::Point bottom_left_pt;
+	bottom_left_pt.x = input.cols * roi[2].first;
+	bottom_left_pt.y = input.rows * roi[2].second;
+
+	cv::Point bottom_right_pt;
+	bottom_right_pt.x = input.cols * roi[3].first;
+	bottom_right_pt.y = input.rows * roi[3].second;
+
+	cv::Point corners[1][4];
+	corners[0][0] = bottom_left_pt;
+	corners[0][1] = top_left_pt;
+	corners[0][2] = top_right_pt;
+	corners[0][3] = bottom_right_pt;
+
+	const cv::Point* corner_list[1] = { corners[0] };
+	int num_points = 4;
+	int num_polygons = 1;
+
+	cv::Mat mask = cv::Mat::zeros(cv::Size(input.cols, input.rows), CV_64F);
+
+	// Debug Draw Methods
+	if (debug) {
+		cv::line(input, bottom_left_pt, top_right_pt, 255);
+		cv::line(input, bottom_right_pt, top_left_pt, 255);
+		this->show_image(input, 1, 1, 5000);
+	}
+
+	cv::fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255));
+	cv::Mat output(cv::Size(mask.cols, mask.rows), CV_64F);
+	cv::bitwise_and(input, mask, output);
+	return output;
+}
+
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_l2,
 													  double top_r1, double top_r2,
 													  double bottom_l1, double bottom_l2,
@@ -98,7 +142,7 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_
 /// </summary>
 cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	input.convertTo(input, CV_8UC1);
-	std::vector<cv::Vec4i> lines;;
+	std::vector<cv::Vec4i> lines;
 	//lines.convertTo(lines, CV_8UC1);
 	int rho = 1;
 	double theta = M_PI/180;
@@ -106,6 +150,9 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input,cv::Mat& output) {
 	int minLineLength = 20;
 	int maxLineGap = 300;
 	cv::HoughLinesP(input,lines, rho, theta,threshold,minLineLength,maxLineGap);
+	if (lines.size() == 0) {
+		return output;
+	}
 
 	std::vector<cv::Vec4i> hough_lines;
 	for (int i = 0; i < lines.size(); i++) {
@@ -258,7 +305,47 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	top_line[3] = r_max_pt.y;
 	return top_line;
 }
+cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pair<float, float>>& roi) {
+	// Convert to HLS color space
+	cv::Mat hls_im;
+	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
 
+	// Get RGB img
+	cv::Mat rgb_im = input_frame.clone();
+
+	// Get yellow lanes
+	std::vector<int> y_lower_b = { 10, 0, 100 };
+	std::vector<int> y_upper_b = { 40, 255, 255 };
+	cv::Mat yellow_mask = this->mask_color(hls_im, y_lower_b, y_upper_b);
+
+	// Get white lanes
+	std::vector<int> w_lower_b = { 0, 200, 0 };
+	std::vector<int> w_upper_b = { 200, 255, 255 };
+	cv::Mat white_mask = this->mask_color(hls_im, w_lower_b, w_upper_b);
+
+	// Combine
+	cv::Mat combined = this->combine_mask(yellow_mask, white_mask);
+
+	//Blur
+	cv::Mat blurred;
+	cv::GaussianBlur(combined, blurred, { 7,7 }, 0);
+
+	// Edge detect
+	cv::Mat edges;
+	cv::Canny(blurred, edges, 100, 190);
+
+	// From the edges, remove unnecessary edges
+	// propose a region of interest
+	cv::Mat roi_im = this->propose_roi(
+		edges,
+		roi,
+		false
+	);
+	//this->show_image(roi_im, 1, 1, 5000);
+
+	rgb_im = this->get_lanes(roi_im, rgb_im);
+	return rgb_im;
+}
 cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
 	// Convert to HLS color space
 	cv::Mat hls_im;
@@ -417,6 +504,14 @@ std::vector<std::string> FeatureExtractor::split(const std::string& s, char deli
 		elems.push_back(item);
 	}
 	return elems;
+}
+
+std::string FeatureExtractor::get_name_num(std::string& file_loc) {
+	std::vector<std::string> f_path_items = this->split(file_loc, '/');
+	std::string f_name = f_path_items[f_path_items.size() - 1];
+	std::vector<std::string> f_name_items = this->split(f_name, '.');
+	std::string f_name_num = f_name_items[0];
+	return f_name_num;
 }
 
 cv::Mat FeatureExtractor::normalize_dataset(cv::Mat& x_data) {
@@ -677,11 +772,23 @@ std::vector<cv::Rect> FeatureExtractor::respace(std::vector<cv::Rect>& bboxes,cv
 	return adjusted_bboxes;
 }
 
+void FeatureExtractor::display_num_vehicles(cv::Mat& img,std::vector<cv::Rect>& bboxes) {
+	int num_bboxes = bboxes.size();
+	std::string s_num_boxes = std::to_string(num_bboxes);
+	cv::putText(
+		img, 
+		cv::String("Number of Vehicles in view: " + s_num_boxes), 
+		cv::Point(10, img.rows-30),
+		cv::FONT_HERSHEY_DUPLEX,
+		0.5, 
+		cv::Scalar(0, 0, 255)
+	);
+}
+
 
 std::vector<cv::Rect> FeatureExtractor::sliding_window(cv::Mat& img, cv::Size& win_stride, cv::Size& window_size, float scale, const cv::Ptr <cv::ml::SVM>& model) {
 	cv::Mat gray_im;
 	cv::cvtColor(img, gray_im, cv::COLOR_BGR2GRAY);
-	std::cout << "hey \n";
 	std::vector<cv::Rect> bboxes;
 	
 	cv::Mat temp = gray_im.clone();

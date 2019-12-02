@@ -20,8 +20,8 @@
 #include <math.h>
 
 struct ConfigurationParameters {
+	//"../datasets/test_data/singapore_snippet1/"; //"../datasets/udacity_challenge_video/challenge_2_frames/";
 	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_frames/";
-
 
 	// Vehicle Detection Parameters
 	std::string model_name = "model_big.yaml";
@@ -33,23 +33,39 @@ class FeatureExtractor {
 public:
 	cv::Mat mask_color(cv::Mat&, std::vector<int>&,std::vector<int>&);
 	cv::Mat combine_mask(cv::Mat&, cv::Mat&);
-	cv::Mat propose_roi(cv::Mat&,
-		double, double,
-		double, double,
-		double, double,
-		double, double,
-		bool
+
+	cv::Mat propose_roi(
+		cv::Mat&, 
+		std::vector<std::pair<float, float>>&,
+		bool debug = (false)
 	);
-	std::vector<cv::Point> detection_roi(cv::Mat&,
+	cv::Mat propose_roi(
+		cv::Mat&,
 		double, double,
 		double, double,
 		double, double,
 		double, double,
-		bool
+		bool debug = (false)
+	);
+	std::vector<cv::Point> detection_roi(
+		cv::Mat&,
+		double, double,
+		double, double,
+		double, double,
+		double, double,
+		bool debug = (false)
 	);
 
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
-	cv::Mat lane_detect(cv::Mat&);
+	
+	cv::Mat lane_detect(
+		cv::Mat&
+	);
+	cv::Mat lane_detect(
+		cv::Mat&, 
+		std::vector<std::pair<float, float>>&
+	);
+
 	cv::Vec4i find_lowest_point(std::vector<cv::Vec4i>&,int middle_pt = (650));
 	cv::Vec4i find_highest_point(std::vector<cv::Vec4i>&, int middle_pt = (650));
 	cv::Point extrapolate_line(cv::Vec4i&, int);
@@ -115,9 +131,12 @@ public:
 		std::vector<cv::Rect>&,
 		cv::Rect&
 	);
+	std::vector<std::string> split(const std::string&, char);
+	std::string get_name_num(std::string&);
+
+	void display_num_vehicles(cv::Mat&,std::vector<cv::Rect>&);
 private:
 	std::vector<cv::Mat> load_images(std::string,bool,int num_imgs = (200));
-	std::vector<std::string> split(const std::string&, char);
 };
 
 #endif

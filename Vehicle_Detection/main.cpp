@@ -1,43 +1,57 @@
 #include "feature_extractor.h"
 
-
-
 int main() {
 	ConfigurationParameters config;
 	FeatureExtractor fe;
 
+	printf("---- Opening SVM Model ---\n");
 	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = fe.get_svm_detector(config.model_name, 1);
 	cv::HOGDescriptor hog;
 	hog.winSize = cv::Size(64, 64);
 	hog.setSVMDetector(svm_items.second);
-
-	std::vector<cv::Point> roi = {
+	printf("---- Model opened ----\n");
+	
+	std::vector<std::pair<float, float>> ld_roi = {
+									std::pair(0,1),
+									std::pair(1,1),
+									std::pair(0.518,0.59),
+									std::pair(0.518,0.59)
+	};
+	
+	std::vector<cv::Point> vd_roi = {
 									cv::Point(120,175),
 									cv::Point(672,175),
 									cv::Point(120,300),
 									cv::Point(672,300)
 	};
 
-	int num = 0;
 	for (const auto& entry : std::filesystem::directory_iterator(config.test_data_loc)) {
 		//std::cout << entry.path() << std::endl;
 		std::string current_im_loc = entry.path().string();
+		std::cout << current_im_loc << std::endl;
+		std::string name_num = fe.get_name_num(current_im_loc);
+
 		cv::Mat img_frame = cv::imread(current_im_loc);
 		cv::resize(img_frame, img_frame, cv::Size(672, 378));
-		cv::Mat ld_out = fe.lane_detect(img_frame);
-		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(img_frame, hog, roi);
+
+		cv::Mat ld_out = fe.lane_detect(img_frame,ld_roi);
+		
+		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(img_frame, hog, vd_roi);
 		// Get ROI crop
-		cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
+		cv::Rect roi_im(vd_roi[0].x, vd_roi[0].y, vd_roi[1].x - vd_roi[0].x, vd_roi[2].y - vd_roi[0].y);
 		std::vector<cv::Rect> adjusted_bboxes = fe.respace(bboxes, roi_im);
 
 		for (const cv::Rect& box : adjusted_bboxes) {
 			cv::rectangle(ld_out, box, cv::Scalar(0, 0, 255), 2);
 		}
-		std::string num_name = std::to_string(num);
-		cv::imwrite("ld_vd_imgs/" + num_name + ".png", ld_out);
-		num++;
+
+		// Count number of detections
+		fe.display_num_vehicles(ld_out, adjusted_bboxes);
+		cv::imwrite("ld_vd_imgs/" + name_num + ".png", ld_out);
 	}
+	printf("[LOG]: Dection done!\n");
 	return 0;
+
 }
 
 

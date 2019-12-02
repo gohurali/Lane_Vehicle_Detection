@@ -159,20 +159,27 @@ def parse_video(args, frame_est):
 
 def make_gif(dir_loc):
     images = []
+    names = []
+    im_data = {}
     for f in os.listdir(dir_loc):
+        im_name_num = int(f.split('.')[0])
         im = imageio.imread(dir_loc+f)
         images.append(im)
+        im_data[im_name_num] = im
+    imgs = list(im_data.values())
     minute, hour, day, month, year = get_current_time()
     im_name = str(year) + str(month) + str(day) + str(hour) + str(minute) + '.gif'
-    imageio.mimsave(args.output_loc+im_name,images)
+    imageio.mimsave(args.output_loc+im_name,imgs)
     print('-- Saved gif at location [' +args.output_loc+'] --' )
 
 def make_video(dir_loc):
     fps = int(args.fps)
-    images = []
+    im_data = {}
     for f in os.listdir(dir_loc):
+        im_name_num = int(f.split('.')[0])
         im = imageio.imread(dir_loc+f)
-        images.append(im)
+        im_data[im_name_num] = im
+    images = list(im_data.values())
     minute, hour, day, month, year = get_current_time()
     im_name = str(year) + str(month) + str(day) + str(hour) + str(minute) + '.avi'
     height,width,_ = images[0].shape

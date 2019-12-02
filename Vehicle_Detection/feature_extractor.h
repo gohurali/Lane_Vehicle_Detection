@@ -156,6 +156,14 @@ public:
 		std::vector<cv::Point>&,
 		bool include_all_bboxes = (false)
 	);
+	std::vector<cv::Rect> vehicle_detect_bboxes(
+		cv::Mat&,
+		cv::HOGDescriptor&,
+		std::vector<cv::Point>&,
+		float bbox_confidence_threshold,
+		float nms_threshold,
+		bool include_all_bboxes = (false)
+	);
 
 	std::vector<cv::Rect> respace(
 		std::vector<cv::Rect>&,

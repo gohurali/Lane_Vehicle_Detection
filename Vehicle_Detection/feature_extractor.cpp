@@ -1015,6 +1015,32 @@ std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(cv::Mat& img, cv::
 	return filtered_boxes;
 }
 
+std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDescriptor& detector, std::vector<cv::Point>& roi, float bbox_confidence_threshold, float nms_threshold, bool include_all_bboxes){
+	cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
+	cv::Mat cropped_im = img(roi_im);
+	std::vector<cv::Rect> found_locations;
+	std::vector<double> confidence;
+	detector.detectMultiScale(cropped_im, found_locations, confidence, 0.0, cv::Size(8, 8), cv::Size(0, 0), 1.2632, 2.0);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
+	std::vector<float> confidence2;
+	for (const double conf : confidence) {
+		confidence2.push_back(static_cast<float>(conf));
+	}
+	std::vector<int> keep_vec;
+	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
+	cv::dnn::NMSBoxes(found_locations, confidence2, bbox_confidence_threshold, nms_threshold, keep_vec);
+
+	if (include_all_bboxes) {
+		for (cv::Rect r : found_locations) {
+			cv::rectangle(cropped_im, r, cv::Scalar(0, 255, 0), 2);
+		}
+	}
+	std::vector<cv::Rect> filtered_boxes;
+	for (const int idx : keep_vec) {
+		cv::Rect curr_rect = found_locations[idx];
+		filtered_boxes.push_back(curr_rect);
+	}
+	return filtered_boxes;
+}
 std::vector<cv::Rect> FeatureExtractor::respace(std::vector<cv::Rect>& bboxes,cv::Rect& roi) {
 	std::vector<cv::Rect> adjusted_bboxes;
 	for (cv::Rect curr_rect : bboxes) {

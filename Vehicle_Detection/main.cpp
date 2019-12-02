@@ -32,6 +32,8 @@ int main() {
 			img_frame, 
 			hog, 
 			config.vd_roi,
+			config.bbox_confidence_threshold,
+			config.nms_threshold,
 			false
 		);
 

@@ -7,7 +7,7 @@ int main() {
 	printf("---- Opening SVM Model ---\n");
 	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = fe.get_svm_detector(config.model_name, 1);
 	cv::HOGDescriptor hog;
-	hog.winSize = cv::Size(64, 64);
+	hog.winSize = cv::Size(config.window_size, config.window_size);
 	hog.setSVMDetector(svm_items.second);
 	printf("---- Model opened ----\n");
 	
@@ -17,39 +17,20 @@ int main() {
 		std::string name_num = fe.get_name_num(current_im_loc);
 
 		cv::Mat img_frame = cv::imread(current_im_loc);
-		cv::resize(img_frame, img_frame, cv::Size(672, 378));
+		cv::resize(img_frame, img_frame, cv::Size(config.img_width, config.img_height));
 
-		cv::Mat ld_out = fe.lane_detect(
-			img_frame,
-			300,
-			415,
-			config.ld_roi,
-			config,
-			true
-		);
+		// Find the lanes on the road
+		cv::Mat ld_out = fe.lane_detect(config, img_frame);
 		
+		// Find localized bboxes on img
 		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(
+			config,
 			img_frame, 
-			hog, 
-			config.vd_roi,
-			config.bbox_confidence_threshold,
-			config.nms_threshold,
+			hog,
 			false
 		);
 
-		// Since bboxes are in the cropped image space coordinates
-		// they need to be rescaled to the coordinates of the original image size
-		cv::Rect roi_im(
-			config.vd_roi[0].x, 
-			config.vd_roi[0].y, 
-			config.vd_roi[1].x - config.vd_roi[0].x, 
-			config.vd_roi[2].y - config.vd_roi[0].y
-		);
-		std::vector<cv::Rect> adjusted_bboxes = fe.respace(bboxes, roi_im);
-
-		for (const cv::Rect& box : adjusted_bboxes) {
-			cv::rectangle(ld_out, box, cv::Scalar(0, 0, 255), 2);
-		}
+		std::vector<cv::Rect> adjusted_bboxes = fe.draw_bboxes(config, bboxes, ld_out);
 
 		// Count number of detections
 		fe.display_num_vehicles(ld_out, adjusted_bboxes);

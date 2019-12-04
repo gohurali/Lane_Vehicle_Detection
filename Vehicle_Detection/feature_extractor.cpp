@@ -168,9 +168,9 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<floa
 /// <param name="debug"></param>
 /// <returns>returns the specifed region of interest</returns>
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_l2,
-	double top_r1, double top_r2,
-	double bottom_l1, double bottom_l2,
-	double bottom_r1, double bottom_r2, bool debug) {
+	                                                  double top_r1, double top_r2,
+	                                                  double bottom_l1, double bottom_l2,
+	                                                  double bottom_r1, double bottom_r2, bool debug) {
 	input.convertTo(input, CV_64F);
 
 	std::pair<int, int> top_left = { input.cols * top_l1 , input.rows * top_l2 };
@@ -598,6 +598,33 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	return top_line;
 }
 
+cv::Mat FeatureExtractor::lane_detect(ConfigurationParameters& config, cv::Mat& input_frame) {
+	// Get RGB img
+	cv::Mat rgb_im = input_frame.clone();
+	cv::Mat edges = this->extract_lane_colors(config,input_frame);
+
+	// From the edges, remove unnecessary edges
+	// propose a region of interest
+	cv::Mat roi_im = this->propose_roi(
+		edges,
+		config.ld_roi,
+		false
+	);
+
+	if (config.remove_between_lanes) {
+		cv::Mat inner_mask = this->create_inner_cover_mask(roi_im, config.inner_roi);
+		roi_im.convertTo(roi_im, CV_8UC1);
+		inner_mask.convertTo(inner_mask, CV_8UC1);
+		roi_im = this->remove_middle_polygons(roi_im, inner_mask);
+	}
+
+	//this->show_image(roi_im, 1, 1, 5000);
+
+	rgb_im = this->get_lanes(roi_im, rgb_im,config.l_threshold,config.r_threshold);
+	return rgb_im;
+}
+
+
 /// <summary>
 /// 
 /// </summary>
@@ -609,33 +636,9 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 /// <param name="remove_between_lanes"></param>
 /// <returns></returns>
 cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int r_threshold, std::vector<std::pair<float, float>>& roi, ConfigurationParameters& config, bool remove_between_lanes) {
-	// Convert to HLS color space
-	cv::Mat hls_im;
-	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
-
 	// Get RGB img
 	cv::Mat rgb_im = input_frame.clone();
-
-	// Get yellow lanes
-	std::vector<int> y_lower_b = { 10, 0, 100 };
-	std::vector<int> y_upper_b = { 40, 255, 255 };
-	cv::Mat yellow_mask = this->mask_color(hls_im, y_lower_b, y_upper_b);
-
-	// Get white lanes
-	std::vector<int> w_lower_b = { 0, 200, 0 };
-	std::vector<int> w_upper_b = { 200, 255, 255 };
-	cv::Mat white_mask = this->mask_color(hls_im, w_lower_b, w_upper_b);
-
-	// Combine
-	cv::Mat combined = this->combine_mask(yellow_mask, white_mask);
-
-	//Blur
-	cv::Mat blurred;
-	cv::GaussianBlur(combined, blurred, { 3,3 }, 0);
-
-	// Edge detect
-	cv::Mat edges;
-	cv::Canny(blurred, edges, 100, 190);
+	cv::Mat edges = this->extract_lane_colors(input_frame);
 
 	// From the edges, remove unnecessary edges
 	// propose a region of interest
@@ -654,7 +657,7 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int
 
 	//this->show_image(roi_im, 1, 1, 5000);
 
-	rgb_im = this->get_lanes(roi_im, rgb_im);
+	rgb_im = this->get_lanes(roi_im, rgb_im,l_threshold,r_threshold);
 	return rgb_im;
 }
 
@@ -665,33 +668,9 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int
 /// <param name="roi"></param>
 /// <returns></returns>
 cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pair<float, float>>& roi) {
-	// Convert to HLS color space
-	cv::Mat hls_im;
-	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
-
 	// Get RGB img
 	cv::Mat rgb_im = input_frame.clone();
-
-	// Get yellow lanes
-	std::vector<int> y_lower_b = { 10, 0, 100 };
-	std::vector<int> y_upper_b = { 40, 255, 255 };
-	cv::Mat yellow_mask = this->mask_color(hls_im, y_lower_b, y_upper_b);
-
-	// Get white lanes
-	std::vector<int> w_lower_b = { 0, 200, 0 };
-	std::vector<int> w_upper_b = { 200, 255, 255 };
-	cv::Mat white_mask = this->mask_color(hls_im, w_lower_b, w_upper_b);
-
-	// Combine
-	cv::Mat combined = this->combine_mask(yellow_mask, white_mask);
-
-	//Blur
-	cv::Mat blurred;
-	cv::GaussianBlur(combined, blurred, { 3,3 }, 0);
-
-	// Edge detect
-	cv::Mat edges;
-	cv::Canny(blurred, edges, 100, 190);
+	cv::Mat edges = this->extract_lane_colors(input_frame);
 
 	// From the edges, remove unnecessary edges
 	// propose a region of interest
@@ -712,12 +691,56 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pai
 /// <param name="input_frame"></param>
 /// <returns></returns>
 cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
-	// Convert to HLS color space
+	// Get RGB img
+	cv::Mat rgb_im = input_frame.clone();
+	cv::Mat edges = this->extract_lane_colors(input_frame);
+
+	// From the edges, remove unnecessary edges
+	// propose a region of interest
+	cv::Mat roi_im = this->propose_roi(edges,
+		0, 1,
+		1, 1,
+		0.518, 0.59,
+		0.518, 0.59,
+		false
+	);
+	//this->show_image(roi_im, 1, 1, 5000);
+
+	rgb_im = this->get_lanes(roi_im, rgb_im);
+	return rgb_im;
+}
+
+
+cv::Mat FeatureExtractor::extract_lane_colors(ConfigurationParameters& config, cv::Mat& input_frame) {
 	cv::Mat hls_im;
 	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
 
-	// Get RGB img
-	cv::Mat rgb_im = input_frame.clone();
+	// Get yellow lanes
+	std::vector<int> y_lower_b = { 10, 0, 100 };
+	std::vector<int> y_upper_b = { 40, 255, 255 };
+	cv::Mat yellow_mask = this->mask_color(hls_im, y_lower_b, y_upper_b);
+
+	// Get white lanes
+	std::vector<int> w_lower_b = { 0, 200, 0 };
+	std::vector<int> w_upper_b = { 200, 255, 255 };
+	cv::Mat white_mask = this->mask_color(hls_im, w_lower_b, w_upper_b);
+
+	// Combine
+	cv::Mat combined = this->combine_mask(yellow_mask, white_mask);
+
+	//Blur
+	cv::Mat blurred;
+	cv::GaussianBlur(combined, blurred, { config.smoothing_kernel_size,config.smoothing_kernel_size }, 0);
+
+	// Edge detect
+	cv::Mat edges;
+	cv::Canny(blurred, edges, 100, 190);
+	return edges;
+}
+
+cv::Mat FeatureExtractor::extract_lane_colors(cv::Mat& input_frame) {
+	cv::Mat hls_im;
+	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
 
 	// Get yellow lanes
 	std::vector<int> y_lower_b = { 10, 0, 100 };
@@ -739,20 +762,7 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
 	// Edge detect
 	cv::Mat edges;
 	cv::Canny(blurred, edges, 100, 190);
-
-	// From the edges, remove unnecessary edges
-	// propose a region of interest
-	cv::Mat roi_im = this->propose_roi(edges,
-		0, 1,
-		1, 1,
-		0.518, 0.59,
-		0.518, 0.59,
-		false
-	);
-	//this->show_image(roi_im, 1, 1, 5000);
-
-	rgb_im = this->get_lanes(roi_im, rgb_im);
-	return rgb_im;
+	return edges;
 }
 
 /// <summary>
@@ -1227,7 +1237,16 @@ std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(cv::Mat& img, cv::
 	cv::Mat cropped_im = img(roi_im);
 	std::vector<cv::Rect> found_locations;
 	std::vector<double> confidence;
-	detector.detectMultiScale(cropped_im, found_locations, confidence, 0.0, cv::Size(8, 8), cv::Size(0, 0), 1.2632, 2.0);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
+	detector.detectMultiScale(
+		cropped_im, 
+		found_locations, 
+		confidence, 
+		0.0, 
+		cv::Size(8, 8), 
+		cv::Size(0, 0), 
+		1.2632, 
+		2.0
+	);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
 	std::vector<float> confidence2;
 	for (const double conf : confidence) {
 		confidence2.push_back(static_cast<float>(conf));
@@ -1286,9 +1305,56 @@ std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(cv::Mat& img, cv::
 	return filtered_boxes;
 }
 
+std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(ConfigurationParameters& config,cv::Mat& img, cv::HOGDescriptor& detector,bool include_all_bboxes) {
+	cv::Rect roi_im(
+		config.vd_roi[0].x, 
+		config.vd_roi[0].y, 
+		config.vd_roi[1].x - config.vd_roi[0].x, 
+		config.vd_roi[2].y - config.vd_roi[0].y
+	);
+	cv::Mat cropped_im = img(roi_im);
+	std::vector<cv::Rect> found_locations;
+	std::vector<double> confidence;
+	detector.detectMultiScale(
+		cropped_im, 
+		found_locations, 
+		confidence, 
+		0.0,
+		cv::Size(8, 8), 
+		cv::Size(0, 0),
+		config.scale_factor, 
+		2.0
+	);
+	std::vector<float> confidence2;
+	for (const double conf : confidence) {
+		confidence2.push_back(static_cast<float>(conf));
+	}
+	std::vector<int> keep_vec;
+	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
+	cv::dnn::NMSBoxes(found_locations, confidence2, config.bbox_confidence_threshold, config.nms_threshold, keep_vec);
+
+	if (include_all_bboxes) {
+		for (cv::Rect r : found_locations) {
+			cv::rectangle(cropped_im, r, cv::Scalar(0, 255, 0), 2);
+		}
+	}
+	std::vector<cv::Rect> filtered_boxes;
+	for (const int idx : keep_vec) {
+		cv::Rect curr_rect = found_locations[idx];
+		filtered_boxes.push_back(curr_rect);
+	}
+	return filtered_boxes;
+}
 
 /// <summary>
-/// 
+/// respace
+/// This method takes the cropped img bboxes and 
+/// converts the bbox coordinates back into the original
+/// img coordinate space. This is because the coordinates
+/// with the bboxes are relative to the cropped ROI image.
+/// Since we only care about the top left x and y coordinates
+/// that is the only point that is converted. The rest of the bounding
+/// box is created via width and height information.
 /// </summary>
 /// <param name="bboxes"></param>
 /// <param name="roi"></param>
@@ -1299,6 +1365,23 @@ std::vector<cv::Rect> FeatureExtractor::respace(std::vector<cv::Rect>& bboxes, c
 		curr_rect.x += roi.x;
 		curr_rect.y += roi.y;
 		adjusted_bboxes.push_back(curr_rect);
+	}
+	return adjusted_bboxes;
+}
+
+std::vector<cv::Rect> FeatureExtractor::draw_bboxes(ConfigurationParameters& config, std::vector<cv::Rect>& bboxes, cv::Mat& img) {
+	// Since bboxes are in the cropped image space coordinates
+	// they need to be rescaled to the coordinates of the original image size
+	cv::Rect roi_im(
+		config.vd_roi[0].x,
+		config.vd_roi[0].y,
+		config.vd_roi[1].x - config.vd_roi[0].x,
+		config.vd_roi[2].y - config.vd_roi[0].y
+	);
+	std::vector<cv::Rect> adjusted_bboxes = this->respace(bboxes, roi_im);
+
+	for (const cv::Rect& box : adjusted_bboxes) {
+		cv::rectangle(img, box, cv::Scalar(0, 0, 255), 2);
 	}
 	return adjusted_bboxes;
 }

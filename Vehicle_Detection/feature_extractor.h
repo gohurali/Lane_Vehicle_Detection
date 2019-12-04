@@ -49,6 +49,7 @@ public:
 		double, double,
 		bool debug = (false)
 	);
+
 	std::vector<cv::Point> detection_roi(
 		cv::Mat&,
 		double, double,
@@ -58,6 +59,10 @@ public:
 		bool debug = (false)
 	);
 
+	cv::Mat lane_detect(
+		ConfigurationParameters& config,
+		cv::Mat&
+	);
 	cv::Mat lane_detect(
 		cv::Mat&
 	);
@@ -72,6 +77,12 @@ public:
 		std::vector<std::pair<float, float>>&,
 		ConfigurationParameters& config,
 		bool remove_between_lanes = (false)
+	);
+
+	cv::Mat extract_lane_colors(cv::Mat&);
+	cv::Mat extract_lane_colors(
+		ConfigurationParameters& config,
+		cv::Mat&
 	);
 
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
@@ -164,10 +175,22 @@ public:
 		float nms_threshold,
 		bool include_all_bboxes = (false)
 	);
+	std::vector<cv::Rect> vehicle_detect_bboxes(
+		ConfigurationParameters& config,
+		cv::Mat&,
+		cv::HOGDescriptor&,
+		bool include_all_bboxes = (false)
+	);
 
 	std::vector<cv::Rect> respace(
 		std::vector<cv::Rect>&,
 		cv::Rect&
+	);
+
+	std::vector<cv::Rect> draw_bboxes(
+		ConfigurationParameters& config,
+		std::vector<cv::Rect>& bboxes,
+		cv::Mat& img
 	);
 	std::vector<std::string> split(const std::string&, char);
 	std::string get_name_num(std::string&);

@@ -2,7 +2,7 @@
 #define CONFIG_H
 #include <vector>
 #include <string>
-struct ConfigurationParameters {
+const struct ConfigurationParameters {
 
 	int img_width = 672;
 	int img_height = 378;
@@ -31,7 +31,7 @@ struct ConfigurationParameters {
 
 	// ---------- HOG + Support Vector Machine Training Parameters ------
 	int window_size = 64;
-
+	bool perform_test_svm = false;
 
 	// ---------------------- Vehicle Detection Parameters ----------------------
 	std::string model_name = "model_big.yaml";

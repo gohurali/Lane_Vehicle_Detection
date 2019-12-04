@@ -1,16 +1,69 @@
 #include "feature_extractor.h"
 
+void lane_vehicle_detect(ConfigurationParameters& config, FeatureExtractor& fe);
+void train_model(ConfigurationParameters& config, FeatureExtractor& fe);
+
 int main() {
 	ConfigurationParameters config;
 	FeatureExtractor fe;
+	
+	if (!std::filesystem::exists(config.model_name)) {
+		printf("---- Training model ----\n");
+		train_model(config, fe);
+	}
+	else {
+		printf("---- Inference on Model ----- \n");
+		lane_vehicle_detect(config, fe);
+	}
 
+	
+	return 0;
+}
+
+void train_model(ConfigurationParameters& config, FeatureExtractor& fe) {
+	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(
+		config.car_dataset_loc,
+		config.noncar_dataset_loc,
+		false
+	);
+
+	// Obtain features -- HOG
+	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first, false);
+
+	// Transform vector of matrices to matrix of matrices
+	std::pair<cv::Mat, cv::Mat> transformed_dataset = fe.prepare_training_data(hog_ims, dataset.second);
+
+	// Normalize the dataset
+	cv::Mat norm_x_data = fe.normalize_dataset(transformed_dataset.first);
+
+	if (config.perform_test_svm) {
+		printf("-- Performing a Test on the SVM --\n");
+		// Shuffle and split the data 
+		cv::Ptr<cv::ml::TrainData> dataset = fe.train_test_split(
+			norm_x_data,
+			transformed_dataset.second,
+			1000
+		);
+		// Train & Test SVM
+		fe.train_test_svm(
+			dataset->getTrainSamples(), dataset->getTrainResponses(),
+			dataset->getTestSamples(), dataset->getTestResponses(),
+			false
+		);
+	}
+	else {
+		fe.train_svm(transformed_dataset.first, transformed_dataset.second);
+	}
+}
+
+void lane_vehicle_detect(ConfigurationParameters& config, FeatureExtractor& fe) {
 	printf("---- Opening SVM Model ---\n");
 	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = fe.get_svm_detector(config.model_name, 1);
 	cv::HOGDescriptor hog;
 	hog.winSize = cv::Size(config.window_size, config.window_size);
 	hog.setSVMDetector(svm_items.second);
 	printf("---- Model opened ----\n");
-	
+
 	for (const auto& entry : std::filesystem::directory_iterator(config.test_data_loc)) {
 		std::string current_im_loc = entry.path().string();
 		std::cout << current_im_loc << std::endl;
@@ -21,11 +74,11 @@ int main() {
 
 		// Find the lanes on the road
 		cv::Mat ld_out = fe.lane_detect(config, img_frame);
-		
+
 		// Find localized bboxes on img
 		std::vector<cv::Rect> bboxes = fe.vehicle_detect_bboxes(
 			config,
-			img_frame, 
+			img_frame,
 			hog,
 			false
 		);
@@ -37,9 +90,8 @@ int main() {
 		cv::imwrite("ld_vd_imgs/" + name_num + ".png", ld_out);
 	}
 	printf("[LOG]: Dection done!\n");
-	return 0;
-}
 
+}
 
 
 int vehicle_detection() {

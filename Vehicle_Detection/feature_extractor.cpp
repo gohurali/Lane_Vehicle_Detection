@@ -24,7 +24,6 @@ cv::Mat FeatureExtractor::mask_color(cv::Mat& img, std::vector<int>& lower_b, st
 /// combined is the bit-wise disjunction of mask1 and 2.
 cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 	cv::Mat combined;
-
 	// Finds the per-element bit-wise disjunction of both masks and stores into
 	// combined Mat
 	cv::bitwise_or(mask1, mask2, combined);
@@ -32,7 +31,10 @@ cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 }
 
 /// <summary>
-/// 
+/// remove_middle_polygons
+/// the goal of this method is to iterate through
+/// the mask and find the pixels within the bounds of 
+/// the mask and set them to zero
 /// </summary>
 /// <param name="edge_im"></param>
 /// <param name="mask"></param>
@@ -59,6 +61,7 @@ cv::Mat FeatureExtractor::remove_middle_polygons(cv::Mat& edge_im, cv::Mat& mask
 /// <returns></returns>
 cv::Mat FeatureExtractor::create_inner_cover_mask(cv::Mat& input, std::vector<std::pair<float, float>>& roi, bool debug) {
 
+	// define ROI point locations via ROI of percentages of image dims
 	cv::Point top_left_pt;
 	top_left_pt.x = input.cols * roi[0].first;
 	top_left_pt.y = input.rows * roi[0].second;
@@ -82,6 +85,7 @@ cv::Mat FeatureExtractor::create_inner_cover_mask(cv::Mat& input, std::vector<st
 	corners[0][3] = bottom_right_pt;
 
 	const cv::Point* corner_list[1] = { corners[0] };
+	// define polygon size
 	int num_points = 4;
 	int num_polygons = 1;
 
@@ -93,6 +97,7 @@ cv::Mat FeatureExtractor::create_inner_cover_mask(cv::Mat& input, std::vector<st
 		cv::line(input, bottom_right_pt, top_left_pt, 255);
 		this->show_image(input, 1, 1, 5000);
 	}
+	// fill mask of zeros based on ROI points with 255 or white
 	cv::fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255));
 	return mask;
 }
@@ -110,6 +115,7 @@ cv::Mat FeatureExtractor::create_inner_cover_mask(cv::Mat& input, std::vector<st
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<float, float>>& roi, bool debug) {
 	input.convertTo(input, CV_64F);
 
+	// define ROI point locations via ROI of percentages of image dims
 	cv::Point top_left_pt;
 	top_left_pt.x = input.cols * roi[0].first;
 	top_left_pt.y = input.rows * roi[0].second;
@@ -147,6 +153,8 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<floa
 
 	cv::fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255));
 	cv::Mat output(cv::Size(mask.cols, mask.rows), CV_64F);
+	// remove the rest of the image:
+	// perform an AND operation to remove everything that isn't within the polygon
 	cv::bitwise_and(input, mask, output);
 	return output;
 }
@@ -168,15 +176,10 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<floa
 /// <param name="debug"></param>
 /// <returns>returns the specifed region of interest</returns>
 cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_l2,
-	                                                  double top_r1, double top_r2,
-	                                                  double bottom_l1, double bottom_l2,
-	                                                  double bottom_r1, double bottom_r2, bool debug) {
+	double top_r1, double top_r2,
+	double bottom_l1, double bottom_l2,
+	double bottom_r1, double bottom_r2, bool debug) {
 	input.convertTo(input, CV_64F);
-
-	std::pair<int, int> top_left = { input.cols * top_l1 , input.rows * top_l2 };
-	std::pair<int, int> top_right = { input.cols * top_r1 ,input.rows * top_r2 };
-	std::pair<int, int> bottom_left = { input.cols * bottom_l1,input.rows * bottom_l2 };
-	std::pair<int, int> bottom_right = { input.cols * bottom_r1,input.rows * bottom_r2 };
 
 	cv::Point top_left_pt;
 	top_left_pt.x = input.cols * top_l1;
@@ -215,8 +218,100 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_
 
 	cv::fillPoly(mask, corner_list, &num_points, num_polygons, cv::Scalar(255));
 	cv::Mat output(cv::Size(mask.cols, mask.rows), CV_64F);
+	// remove the rest of the image:
+	// perform an AND operation to remove everything that isn't within the polygon
 	cv::bitwise_and(input, mask, output);
 	return output;
+}
+
+/// <summary>
+/// Performs a Hough Transform and obtains the lane lines
+/// A connection line is calculated to see the extent of the
+/// detection. Additionally, the lanes are extrapolated
+/// Pre: Input image and specified locations
+/// Post: Outputs the specified region of interest
+/// </summary>
+cv::Mat FeatureExtractor::get_lanes(ConfigurationParameters& config, cv::Mat& input, cv::Mat& output, int l_threshold, int r_threshold) {
+	input.convertTo(input, CV_8UC1);
+	std::vector<cv::Vec4i> lines;
+	cv::HoughLinesP(
+		input,
+		lines,
+		config.rho,
+		config.theta,
+		config.threshold,
+		config.minLineLength,
+		config.maxLineGap
+	);
+	if (lines.size() == 0) {
+		return output;
+	}
+
+	std::vector<cv::Vec4i> hough_lines;
+	for (int i = 0; i < lines.size(); i++) {
+		cv::Vec4i pts = lines[i];
+		cv::Point x1y1(pts[0], pts[1]);
+		cv::Point x2y2(pts[2], pts[3]);
+		hough_lines.push_back(pts);
+	}
+
+	// Look for highest point
+	cv::Vec4i top_line = this->find_highest_point(hough_lines, input.cols / 2, true);
+	cv::line(
+		output,
+		cv::Point(top_line[0], top_line[1]),
+		cv::Point(top_line[2], top_line[3]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+
+	// Look for the lowest point
+	cv::Vec4i min_points = this->find_lowest_point(hough_lines, input.cols / 2, true);
+
+	// Extrapolate the right lane
+	cv::Vec4i current_right_lane = { min_points[2],min_points[3],top_line[2],top_line[3] };
+	cv::Point adjusted_right_min = this->extrapolate_line(current_right_lane, min_points[1]);
+
+	// Drawing the lane lines
+	this->draw_lane_lines(output, min_points, adjusted_right_min, top_line);
+
+	// create the transparent overlay between lanes
+	this->draw_lane_overlay(output, min_points, adjusted_right_min, top_line);
+	return output;
+}
+
+void FeatureExtractor::draw_lane_lines(cv::Mat& output, cv::Vec4i& min_points, cv::Point& adjusted_right_min, cv::Vec4i& top_line) {
+	cv::line(
+		output,
+		cv::Point(min_points[0], min_points[1]),
+		cv::Point(top_line[0], top_line[1]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+	cv::line(
+		output,
+		cv::Point(adjusted_right_min.x, adjusted_right_min.y),
+		cv::Point(top_line[2], top_line[3]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+}
+
+void FeatureExtractor::draw_lane_overlay(cv::Mat& output, cv::Vec4i& min_points, cv::Point& adjusted_right_min, cv::Vec4i& top_line) {
+	cv::Point corners[1][4];
+	corners[0][0] = cv::Point(min_points[0], min_points[1]);
+	corners[0][1] = cv::Point(adjusted_right_min.x, adjusted_right_min.y);
+	corners[0][2] = cv::Point(top_line[2], top_line[3]);
+	corners[0][3] = cv::Point(top_line[0], top_line[1]);
+
+	const cv::Point* corner_list[1] = { corners[0] };
+	int num_points = 4;
+	int num_polygons = 1;
+	cv::Mat overlay;
+	output.copyTo(overlay);
+	cv::fillPoly(overlay, corner_list, &num_points, num_polygons, cv::Scalar(0, 255, 0));
+	double alpha = 0.3;
+	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
 }
 
 /// <summary>
@@ -243,15 +338,14 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output, int l_thres
 		return output;
 	}
 
+	// Collect hough lines from probabalistic hough transform
 	std::vector<cv::Vec4i> hough_lines;
 	for (int i = 0; i < lines.size(); i++) {
 		cv::Vec4i pts = lines[i];
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
 		hough_lines.push_back(pts);
-		//cv::line(output, x1y1,x2y2, cv::Scalar(0, 0, 255));
 	}
-	//this->show_image(output, 1, 1, 5000);
 
 	// Look for highest point
 	cv::Vec4i top_line = this->find_highest_point(hough_lines, input.cols / 2, true);
@@ -268,42 +362,13 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output, int l_thres
 
 	// Extrapolate the right lane
 	cv::Vec4i current_right_lane = { min_points[2],min_points[3],top_line[2],top_line[3] };
-	//std::cout << " Running \n";
-	//std::cout << current_right_lane << std::endl;
 	cv::Point adjusted_right_min = this->extrapolate_line(current_right_lane, min_points[1]);
-	//std::cout << adjusted_right_min << std::endl;
 
-	cv::line(
-		output,
-		cv::Point(min_points[0], min_points[1]),
-		cv::Point(top_line[0], top_line[1]),
-		cv::Scalar(0, 255, 0),
-		2
-	);
+	// Drawing the lane lines
+	this->draw_lane_lines(output, min_points, adjusted_right_min, top_line);
 
-	cv::line(
-		output,
-		cv::Point(adjusted_right_min.x, adjusted_right_min.y),
-		cv::Point(top_line[2], top_line[3]),
-		cv::Scalar(0, 255, 0),
-		2
-	);
-
-	cv::Point corners[1][4];
-	corners[0][0] = cv::Point(min_points[0], min_points[1]);
-	corners[0][1] = cv::Point(adjusted_right_min.x, adjusted_right_min.y);
-	corners[0][2] = cv::Point(top_line[2], top_line[3]);
-	corners[0][3] = cv::Point(top_line[0], top_line[1]);
-
-	const cv::Point* corner_list[1] = { corners[0] };
-	int num_points = 4;
-	int num_polygons = 1;
-	cv::Mat overlay;
-	output.copyTo(overlay);
-	cv::fillPoly(overlay, corner_list, &num_points, num_polygons, cv::Scalar(0, 255, 0));
-	double alpha = 0.3;
-
-	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
+	// create the transparent overlay between lanes
+	this->draw_lane_overlay(output, min_points, adjusted_right_min, top_line);
 	return output;
 }
 
@@ -318,7 +383,6 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output, int l_thres
 cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output) {
 	input.convertTo(input, CV_8UC1);
 	std::vector<cv::Vec4i> lines;
-	//lines.convertTo(lines, CV_8UC1);
 	int rho = 1;
 	double theta = M_PI / 180;
 	int threshold = 20;
@@ -335,9 +399,7 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output) {
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
 		hough_lines.push_back(pts);
-		//cv::line(output, x1y1,x2y2, cv::Scalar(0, 0, 255));
 	}
-	//this->show_image(output, 1, 1, 5000);
 
 	// Look for highest point
 	cv::Vec4i top_line = this->find_highest_point(hough_lines, input.cols / 2, true);
@@ -354,42 +416,13 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output) {
 
 	// Extrapolate the right lane
 	cv::Vec4i current_right_lane = { min_points[2],min_points[3],top_line[2],top_line[3] };
-	//std::cout << " Running \n";
-	//std::cout << current_right_lane << std::endl;
 	cv::Point adjusted_right_min = this->extrapolate_line(current_right_lane, min_points[1]);
-	//std::cout << adjusted_right_min << std::endl;
 
-	cv::line(
-		output,
-		cv::Point(min_points[0], min_points[1]),
-		cv::Point(top_line[0], top_line[1]),
-		cv::Scalar(0, 255, 0),
-		2
-	);
+	// Drawing the lane lines
+	this->draw_lane_lines(output, min_points, adjusted_right_min, top_line);
 
-	cv::line(
-		output,
-		cv::Point(adjusted_right_min.x, adjusted_right_min.y),
-		cv::Point(top_line[2], top_line[3]),
-		cv::Scalar(0, 255, 0),
-		2
-	);
-
-	cv::Point corners[1][4];
-	corners[0][0] = cv::Point(min_points[0], min_points[1]);
-	corners[0][1] = cv::Point(adjusted_right_min.x, adjusted_right_min.y);
-	corners[0][2] = cv::Point(top_line[2], top_line[3]);
-	corners[0][3] = cv::Point(top_line[0], top_line[1]);
-
-	const cv::Point* corner_list[1] = { corners[0] };
-	int num_points = 4;
-	int num_polygons = 1;
-	cv::Mat overlay;
-	output.copyTo(overlay);
-	cv::fillPoly(overlay, corner_list, &num_points, num_polygons, cv::Scalar(0, 255, 0));
-	double alpha = 0.3;
-
-	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
+	// create the transparent overlay between lanes
+	this->draw_lane_overlay(output, min_points, adjusted_right_min, top_line);
 	return output;
 }
 
@@ -423,7 +456,6 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
-		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
 		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
@@ -471,7 +503,6 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
-		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
 		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
@@ -517,7 +548,6 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
-		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
 		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
@@ -563,7 +593,6 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
-		//std::cout << lines.at<cv::Vec4i>(i) << std::endl;
 		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
@@ -598,10 +627,18 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	return top_line;
 }
 
+/// <summary>
+/// Config based lane detection
+/// lanes are detected based on the parameters
+/// specified in the config.h config file.
+/// </summary>
 cv::Mat FeatureExtractor::lane_detect(ConfigurationParameters& config, cv::Mat& input_frame) {
 	// Get RGB img
 	cv::Mat rgb_im = input_frame.clone();
-	cv::Mat edges = this->extract_lane_colors(config,input_frame);
+
+	// Process the image
+	// RGB -> HLS -> White/Yellow Mask -> Edge detect
+	cv::Mat edges = this->extract_lane_colors(config, input_frame);
 
 	// From the edges, remove unnecessary edges
 	// propose a region of interest
@@ -618,9 +655,7 @@ cv::Mat FeatureExtractor::lane_detect(ConfigurationParameters& config, cv::Mat& 
 		roi_im = this->remove_middle_polygons(roi_im, inner_mask);
 	}
 
-	//this->show_image(roi_im, 1, 1, 5000);
-
-	rgb_im = this->get_lanes(roi_im, rgb_im,config.l_threshold,config.r_threshold);
+	rgb_im = this->get_lanes(config, roi_im, rgb_im, config.l_threshold, config.r_threshold);
 	return rgb_im;
 }
 
@@ -655,9 +690,7 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int
 		roi_im = this->remove_middle_polygons(roi_im, inner_mask);
 	}
 
-	//this->show_image(roi_im, 1, 1, 5000);
-
-	rgb_im = this->get_lanes(roi_im, rgb_im,l_threshold,r_threshold);
+	rgb_im = this->get_lanes(roi_im, rgb_im, l_threshold, r_threshold);
 	return rgb_im;
 }
 
@@ -679,7 +712,6 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pai
 		roi,
 		false
 	);
-	//this->show_image(roi_im, 1, 1, 5000);
 
 	rgb_im = this->get_lanes(roi_im, rgb_im);
 	return rgb_im;
@@ -704,7 +736,6 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
 		0.518, 0.59,
 		false
 	);
-	//this->show_image(roi_im, 1, 1, 5000);
 
 	rgb_im = this->get_lanes(roi_im, rgb_im);
 	return rgb_im;
@@ -734,7 +765,7 @@ cv::Mat FeatureExtractor::extract_lane_colors(ConfigurationParameters& config, c
 
 	// Edge detect
 	cv::Mat edges;
-	cv::Canny(blurred, edges, 100, 190);
+	cv::Canny(blurred, edges, config.canny_thresh1, config.canny_thresh2);
 	return edges;
 }
 
@@ -890,15 +921,9 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& d
 		cv::Mat gray_im;
 		cv::cvtColor(curr_im, gray_im, cv::COLOR_BGR2GRAY);
 
-		// Smoothing the img
-		//cv::GaussianBlur(gray_im, gray_im, cv::Size(7, 7), 10, 30);
-
-		//location_pts.push_back(cv::Point(gray_im.cols / 2, gray_im.rows / 2));
-
+		//Histogram of oriented gradients
 		hog.compute(gray_im, descriptors, window_stride, padding, location_pts);
 		int des_sz = descriptors.size();
-		//cv::Mat test = this->get_hogdescriptor_visu(curr_im.clone(), descriptors, cv::Size(64, 64));
-		//this->show_image(test, 1, 1, 5000);
 
 		cv::Mat out = cv::Mat(descriptors).clone();
 		hog_ims.push_back(out);
@@ -949,105 +974,7 @@ cv::Mat FeatureExtractor::normalize_dataset(cv::Mat& x_data) {
 	return norm_x_data;
 }
 
-/// <summary>
-/// Train support vector machine.
-/// </summary>
-/// <param name="x_data"></param>
-/// <param name="y_data"></param>
-/// <param name="model_fname"></param>
-void FeatureExtractor::train_svm(cv::Mat& x_data, cv::Mat& y_data, std::string model_fname) {
-	printf("------{x_data size = %i}==={y_data size = %i}---------", x_data.rows, y_data.rows);
-	printf("Training SVM\n");
-	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::create();
-	// hyper param setup
-	svm_model->setCoef0(0.0);
-	svm_model->setDegree(3);
-	svm_model->setGamma(0);
-	svm_model->setNu(0.5);
-	svm_model->setP(0.1);
-	svm_model->setC(0.01);
-	svm_model->setType(cv::ml::SVM::EPS_SVR);
-	//svm_model->setType(cv::ml::SVM::C_SVC);
-	//svm_model->setType(cv::ml::SVM::ONE_CLASS);
-	svm_model->setKernel(cv::ml::SVM::LINEAR);
-	svm_model->setTermCriteria(cv::TermCriteria(CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3));
-	svm_model->train(x_data, cv::ml::ROW_SAMPLE, y_data);
-	svm_model->save(model_fname);
-	printf("-- Training Complete -- \n");
-}
 
-/// <summary>
-/// 
-/// </summary>
-/// <param name="x_train"></param>
-/// <param name="y_train"></param>
-/// <param name="x_test"></param>
-/// <param name="y_test"></param>
-/// <param name="save_model"></param>
-/// <param name="model_fname"></param>
-void FeatureExtractor::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_train,
-	const cv::Mat& x_test, const cv::Mat& y_test,
-	bool save_model, std::string model_fname) {
-	printf(" -------- Training SVM ---------\n");
-	printf("x_train size = %i\n", x_train.rows);
-	printf("y_train size = %i\n", y_train.rows);
-	printf("x_test size = %i\n", x_test.rows);
-	printf("y_test size = %i\n", y_test.rows);
-	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::create();
-	// hyper param setup
-	svm_model->setCoef0(0.0);
-	svm_model->setDegree(3);
-	svm_model->setGamma(0);
-	svm_model->setNu(0.5);
-	svm_model->setP(0.1);
-	svm_model->setC(0.01);
-	svm_model->setType(cv::ml::SVM::EPS_SVR);
-	//svm_model->setType(cv::ml::SVM::C_SVC);
-	//svm_model->setType(cv::ml::SVM::ONE_CLASS);
-	svm_model->setKernel(cv::ml::SVM::LINEAR);
-	svm_model->setTermCriteria(cv::TermCriteria(CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3));
-	svm_model->train(x_train, cv::ml::ROW_SAMPLE, y_train);
-	if (save_model) {
-		svm_model->save(model_fname);
-	}
-	printf("-- Training Complete -- \n");
-
-	cv::Mat predictions;
-	svm_model->predict(x_test, predictions);
-
-	//std::cout << predictions << std::endl;
-	//std::cout << "\n";
-	//std::cout << y_test << std::endl;
-
-	// Score the test
-	float correct = 0;
-	for (int i = 0; i < predictions.rows; i++) {
-		float pred = predictions.at<float>(i);
-		//std::cout << "Pred = " << pred << std::endl;
-		int actual = y_test.at<int>(i);
-		//std::cout << "Actual = " << actual << std::endl;
-		if (pred == actual) {
-			correct++;
-		}
-	}
-	float score = correct / static_cast<float>(predictions.rows);
-	//std::cout << "SVM Test Accuracy = " << score << std::endl;
-	printf("SVM Test Accuracy = %f\n", score);
-}
-
-/// <summary>
-/// 
-/// </summary>
-/// <param name="x_data"></param>
-/// <param name="y_data"></param>
-/// <param name="test_size"></param>
-/// <returns></returns>
-cv::Ptr<cv::ml::TrainData> FeatureExtractor::train_test_split(cv::Mat& x_data, cv::Mat& y_data, int test_size) {
-	int train_size = x_data.rows - test_size;
-	cv::Ptr<cv::ml::TrainData> dataset = cv::ml::TrainData::create(x_data, cv::ml::ROW_SAMPLE, y_data);
-	dataset->setTrainTestSplit(train_size);
-	return dataset;
-}
 
 /// <summary>
 /// 
@@ -1081,60 +1008,7 @@ std::pair<cv::Mat, cv::Mat> FeatureExtractor::prepare_training_data(std::vector<
 	return ret;
 }
 
-/// <summary>
-/// 
-/// </summary>
-// https://docs.opencv.org/3.4/d0/df8/samples_2cpp_2train_HOG_8cpp-example.html#a70
-std::vector<float> FeatureExtractor::get_svm_detector(std::string model_loc) {
-	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::load(model_loc);
-	//cv::Ptr<cv::ml::SVM> svm_model = cv::ml::StatModel::load<cv::ml::SVM>(model_loc);
-	cv::Mat support_vectors = svm_model->getSupportVectors();
-	const int sv_total = support_vectors.rows;
-	cv::Mat alpha;
-	cv::Mat svidx;
-	double rho = svm_model->getDecisionFunction(0, alpha, svidx);
 
-	CV_Assert(alpha.total() == 1 && svidx.total() == 1 && sv_total == 1);
-	CV_Assert((alpha.type() == CV_64F && alpha.at<double>(0) == 1.) ||
-		(alpha.type() == CV_32F && alpha.at<float>(0) == 1.f));
-	CV_Assert(support_vectors.type() == CV_32F);
-	float sz = support_vectors.cols + 1;
-	std::vector<float> hog_detector;
-	hog_detector.resize(sz);
-	memcpy(&hog_detector[0], support_vectors.ptr(), support_vectors.cols * sizeof(hog_detector[0]));
-	hog_detector[support_vectors.cols] = (float)-rho;
-	return hog_detector;
-}
-
-/// <summary>
-/// 
-/// </summary>
-/// <param name="model_loc"></param>
-/// <param name="class_num"></param>
-/// <returns></returns>
-std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> FeatureExtractor::get_svm_detector(std::string model_loc, int class_num) {
-	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::load(model_loc);
-	int sv_dim = svm_model->getVarCount();
-	//cv::Ptr<cv::ml::SVM> svm_model = cv::ml::StatModel::load<cv::ml::SVM>(model_loc);
-	cv::Mat support_vectors = svm_model->getSupportVectors();
-	const int sv_total = support_vectors.rows;
-	std::cout << "SV TOTAL = " << sv_total << std::endl;
-	cv::Mat alpha;
-	cv::Mat svidx;
-	alpha = cv::Mat::zeros(sv_total, sv_dim, CV_32F);
-	svidx = cv::Mat::zeros(1, sv_total, CV_64F);
-	cv::Mat resMat;
-	double rho = svm_model->getDecisionFunction(0, alpha, svidx);
-	alpha.convertTo(alpha, CV_32F);
-	resMat = -1 * alpha * support_vectors;
-	std::vector<float> detector;
-	for (int i = 0; i < sv_dim; i++) {
-		detector.push_back(resMat.at<float>(0, i));
-	}
-	detector.push_back(rho);
-	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> res = { svm_model,detector };
-	return res;
-}
 
 /// <summary>
 /// Car detection ROI. Basically allows for a simpler computation by ignoring the 
@@ -1187,225 +1061,7 @@ std::vector<cv::Point> FeatureExtractor::detection_roi(cv::Mat& input, double to
 }
 
 /// <summary>
-/// Search for comparitable features, place bounding box, use Non max suppression to 
-/// limit the number of bounding boxes per car.
-/// </summary>
-/// <param name="img"></param>
-/// <param name="detector"></param>
-/// <param name="roi"></param>
-/// <param name="include_all_bboxes"></param>
-/// <returns></returns>
-cv::Mat FeatureExtractor::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, std::vector<cv::Point>& roi, bool include_all_bboxes) {
-	cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
-	cv::Mat cropped_im = img(roi_im);
-	std::vector<cv::Rect> found_locations;
-	std::vector<double> confidence;
-	detector.detectMultiScale(cropped_im, found_locations, confidence, 0.0, cv::Size(8, 8), cv::Size(0, 0), 1.2632, 2.0);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
-	std::vector<float> confidence2;
-	for (const double conf : confidence) {
-		confidence2.push_back(static_cast<float>(conf));
-	}
-	std::vector<int> keep_vec;
-	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
-	cv::dnn::NMSBoxes(found_locations, confidence2, 0.1f, 0.1f, keep_vec);//0.4f, 0.3f, keep_vec);
-
-	if (include_all_bboxes) {
-		for (cv::Rect r : found_locations) {
-			cv::rectangle(cropped_im, r, cv::Scalar(0, 255, 0), 2);
-		}
-	}
-
-	for (const int idx : keep_vec) {
-		cv::Rect curr_rect = found_locations[idx];
-		cv::rectangle(cropped_im, curr_rect, cv::Scalar(0, 0, 255), 2);
-	}
-
-	cropped_im.copyTo(img(roi_im));
-	return img;
-}
-
-/// <summary>
-/// 
-/// </summary>
-/// <param name="img"></param>
-/// <param name="detector"></param>
-/// <param name="roi"></param>
-/// <param name="include_all_bboxes"></param>
-/// <returns></returns>
-std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDescriptor& detector, std::vector<cv::Point>& roi, bool include_all_bboxes) {
-	cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
-	cv::Mat cropped_im = img(roi_im);
-	std::vector<cv::Rect> found_locations;
-	std::vector<double> confidence;
-	detector.detectMultiScale(
-		cropped_im, 
-		found_locations, 
-		confidence, 
-		0.0, 
-		cv::Size(8, 8), 
-		cv::Size(0, 0), 
-		1.2632, 
-		2.0
-	);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
-	std::vector<float> confidence2;
-	for (const double conf : confidence) {
-		confidence2.push_back(static_cast<float>(conf));
-	}
-	std::vector<int> keep_vec;
-	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
-	cv::dnn::NMSBoxes(found_locations, confidence2, 0.1f, 0.1f, keep_vec);//0.4f, 0.3f, keep_vec);
-
-	if (include_all_bboxes) {
-		for (cv::Rect r : found_locations) {
-			cv::rectangle(cropped_im, r, cv::Scalar(0, 255, 0), 2);
-		}
-	}
-	std::vector<cv::Rect> filtered_boxes;
-	for (const int idx : keep_vec) {
-		cv::Rect curr_rect = found_locations[idx];
-		filtered_boxes.push_back(curr_rect);
-	}
-	return filtered_boxes;
-}
-
-/// <summary>
-/// 
-/// </summary>
-/// <param name="img"></param>
-/// <param name="detector"></param>
-/// <param name="roi"></param>
-/// <param name="bbox_confidence_threshold"></param>
-/// <param name="nms_threshold"></param>
-/// <param name="include_all_bboxes"></param>
-/// <returns></returns>
-std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDescriptor& detector, std::vector<cv::Point>& roi, float bbox_confidence_threshold, float nms_threshold, bool include_all_bboxes) {
-	cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
-	cv::Mat cropped_im = img(roi_im);
-	std::vector<cv::Rect> found_locations;
-	std::vector<double> confidence;
-	detector.detectMultiScale(cropped_im, found_locations, confidence, 0.0, cv::Size(8, 8), cv::Size(0, 0), 1.2632, 2.0);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
-	std::vector<float> confidence2;
-	for (const double conf : confidence) {
-		confidence2.push_back(static_cast<float>(conf));
-	}
-	std::vector<int> keep_vec;
-	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
-	cv::dnn::NMSBoxes(found_locations, confidence2, bbox_confidence_threshold, nms_threshold, keep_vec);
-
-	if (include_all_bboxes) {
-		for (cv::Rect r : found_locations) {
-			cv::rectangle(cropped_im, r, cv::Scalar(0, 255, 0), 2);
-		}
-	}
-	std::vector<cv::Rect> filtered_boxes;
-	for (const int idx : keep_vec) {
-		cv::Rect curr_rect = found_locations[idx];
-		filtered_boxes.push_back(curr_rect);
-	}
-	return filtered_boxes;
-}
-
-std::vector<cv::Rect> FeatureExtractor::vehicle_detect_bboxes(ConfigurationParameters& config,cv::Mat& img, cv::HOGDescriptor& detector,bool include_all_bboxes) {
-	cv::Rect roi_im(
-		config.vd_roi[0].x, 
-		config.vd_roi[0].y, 
-		config.vd_roi[1].x - config.vd_roi[0].x, 
-		config.vd_roi[2].y - config.vd_roi[0].y
-	);
-	cv::Mat cropped_im = img(roi_im);
-	std::vector<cv::Rect> found_locations;
-	std::vector<double> confidence;
-	detector.detectMultiScale(
-		cropped_im, 
-		found_locations, 
-		confidence, 
-		0.0,
-		cv::Size(8, 8), 
-		cv::Size(0, 0),
-		config.scale_factor, 
-		2.0
-	);
-	std::vector<float> confidence2;
-	for (const double conf : confidence) {
-		confidence2.push_back(static_cast<float>(conf));
-	}
-	std::vector<int> keep_vec;
-	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
-	cv::dnn::NMSBoxes(found_locations, confidence2, config.bbox_confidence_threshold, config.nms_threshold, keep_vec);
-
-	if (include_all_bboxes) {
-		for (cv::Rect r : found_locations) {
-			cv::rectangle(cropped_im, r, cv::Scalar(0, 255, 0), 2);
-		}
-	}
-	std::vector<cv::Rect> filtered_boxes;
-	for (const int idx : keep_vec) {
-		cv::Rect curr_rect = found_locations[idx];
-		filtered_boxes.push_back(curr_rect);
-	}
-	return filtered_boxes;
-}
-
-/// <summary>
-/// respace
-/// This method takes the cropped img bboxes and 
-/// converts the bbox coordinates back into the original
-/// img coordinate space. This is because the coordinates
-/// with the bboxes are relative to the cropped ROI image.
-/// Since we only care about the top left x and y coordinates
-/// that is the only point that is converted. The rest of the bounding
-/// box is created via width and height information.
-/// </summary>
-/// <param name="bboxes"></param>
-/// <param name="roi"></param>
-/// <returns></returns>
-std::vector<cv::Rect> FeatureExtractor::respace(std::vector<cv::Rect>& bboxes, cv::Rect& roi) {
-	std::vector<cv::Rect> adjusted_bboxes;
-	for (cv::Rect curr_rect : bboxes) {
-		curr_rect.x += roi.x;
-		curr_rect.y += roi.y;
-		adjusted_bboxes.push_back(curr_rect);
-	}
-	return adjusted_bboxes;
-}
-
-std::vector<cv::Rect> FeatureExtractor::draw_bboxes(ConfigurationParameters& config, std::vector<cv::Rect>& bboxes, cv::Mat& img) {
-	// Since bboxes are in the cropped image space coordinates
-	// they need to be rescaled to the coordinates of the original image size
-	cv::Rect roi_im(
-		config.vd_roi[0].x,
-		config.vd_roi[0].y,
-		config.vd_roi[1].x - config.vd_roi[0].x,
-		config.vd_roi[2].y - config.vd_roi[0].y
-	);
-	std::vector<cv::Rect> adjusted_bboxes = this->respace(bboxes, roi_im);
-
-	for (const cv::Rect& box : adjusted_bboxes) {
-		cv::rectangle(img, box, cv::Scalar(0, 0, 255), 2);
-	}
-	return adjusted_bboxes;
-}
-
-/// <summary>
-/// 
-/// </summary>
-/// <param name="img"></param>
-/// <param name="bboxes"></param>
-void FeatureExtractor::display_num_vehicles(cv::Mat& img, std::vector<cv::Rect>& bboxes) {
-	int num_bboxes = bboxes.size();
-	std::string s_num_boxes = std::to_string(num_bboxes);
-	cv::putText(
-		img,
-		cv::String("Number of Vehicles in view: " + s_num_boxes),
-		cv::Point(10, img.rows - 30),
-		cv::FONT_HERSHEY_DUPLEX,
-		0.5,
-		cv::Scalar(0, 0, 255)
-	);
-}
-
-/// <summary>
-/// 
+/// [DEPRACATED/UNUSED/UNTESTED]
 /// </summary>
 /// <param name="img"></param>
 /// <param name="win_stride"></param>

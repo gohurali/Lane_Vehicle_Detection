@@ -87,6 +87,26 @@ public:
 
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&);
 	cv::Mat get_lanes(cv::Mat&, cv::Mat&, int, int);
+	cv::Mat get_lanes(
+		ConfigurationParameters& config,
+		cv::Mat&, 
+		cv::Mat&, 
+		int, 
+		int
+	);
+
+	void draw_lane_lines(
+		cv::Mat& output,
+		cv::Vec4i& min_points,
+		cv::Point& adjusted_right_min,
+		cv::Vec4i& top_line
+	);
+	void draw_lane_overlay(
+		cv::Mat& output,
+		cv::Vec4i& min_points,
+		cv::Point& adjusted_right_min,
+		cv::Vec4i& top_line
+	);
 
 	cv::Vec4i find_lowest_point(
 		std::vector<cv::Vec4i>&,
@@ -113,26 +133,10 @@ public:
 	void show_image(cv::Mat&,int,int,int);
 
 	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&,bool);
-	
-	void train_svm(
-		cv::Mat&, 
-		cv::Mat&, 
-		std::string model_fname = ("model.yaml")
-	);
-	void train_test_svm(
-		const cv::Mat&, const cv::Mat&, 
-		const cv::Mat&, const cv::Mat&,
-		bool, std::string model_fname = ("model.yaml")
-	);
 
 	cv::Mat normalize_dataset(cv::Mat&);
 
 	std::pair<cv::Mat, cv::Mat> prepare_training_data(std::vector<cv::Mat>&,std::vector<int>&);
-
-	std::vector<float> get_svm_detector(std::string);
-	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> get_svm_detector(std::string,int);
-
-	cv::Ptr<cv::ml::TrainData> train_test_split(cv::Mat& , cv::Mat&, int);
 
 	std::vector<cv::Rect> sliding_window(
 		cv::Mat& img, 
@@ -155,47 +159,8 @@ public:
 		int num_imgs = (200)
 	);
 
-	cv::Mat vehicle_detect(
-		cv::Mat&,
-		cv::HOGDescriptor&,
-		std::vector<cv::Point>&,
-		bool include_all_bboxes = (false)
-	);
-	std::vector<cv::Rect> vehicle_detect_bboxes(
-		cv::Mat&,
-		cv::HOGDescriptor&,
-		std::vector<cv::Point>&,
-		bool include_all_bboxes = (false)
-	);
-	std::vector<cv::Rect> vehicle_detect_bboxes(
-		cv::Mat&,
-		cv::HOGDescriptor&,
-		std::vector<cv::Point>&,
-		float bbox_confidence_threshold,
-		float nms_threshold,
-		bool include_all_bboxes = (false)
-	);
-	std::vector<cv::Rect> vehicle_detect_bboxes(
-		ConfigurationParameters& config,
-		cv::Mat&,
-		cv::HOGDescriptor&,
-		bool include_all_bboxes = (false)
-	);
-
-	std::vector<cv::Rect> respace(
-		std::vector<cv::Rect>&,
-		cv::Rect&
-	);
-
-	std::vector<cv::Rect> draw_bboxes(
-		ConfigurationParameters& config,
-		std::vector<cv::Rect>& bboxes,
-		cv::Mat& img
-	);
 	std::vector<std::string> split(const std::string&, char);
 	std::string get_name_num(std::string&);
-
-	void display_num_vehicles(cv::Mat&,std::vector<cv::Rect>&);
 private:
 	std::vector<cv::Mat> load_images(std::string,bool,int num_imgs = (200));
 };

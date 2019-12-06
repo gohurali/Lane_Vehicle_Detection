@@ -1,7 +1,9 @@
 #ifndef CONFIG_H
 #define CONFIG_H
+#define _USE_MATH_DEFINES
 #include <vector>
 #include <string>
+#include <math.h>
 const struct ConfigurationParameters {
 
 	int img_width = 672;
@@ -12,10 +14,22 @@ const struct ConfigurationParameters {
 	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_frames/";
 
 	// ---------------------- Lane Detection Parameters ----------------------
+	
+	int canny_thresh1 = 100;
+	int canny_thresh2 = 190;
+	
 	int smoothing_kernel_size = 7;
 	bool remove_between_lanes = true;
 	int l_threshold = 350;
 	int r_threshold = 350;
+
+	// Hough Transform Parameters
+	int rho = 1;
+	double theta = M_PI / 180;
+	int threshold = 20;
+	int minLineLength = 20;
+	int maxLineGap = 300;
+
 	std::vector<std::pair<float, float>> inner_roi = {
 									std::pair(0.4,1),
 									std::pair(0.7,1),
@@ -47,6 +61,7 @@ const struct ConfigurationParameters {
 	float bbox_confidence_threshold = 0.1f;
 	float nms_threshold = 0.1f;
 	double scale_factor = 1.2632; // Recommended: 1.2632
+	int win_stride = 8;
 
 };
 #endif

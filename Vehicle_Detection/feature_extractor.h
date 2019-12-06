@@ -1,6 +1,11 @@
-/// feature extractor header file
+/// FeatureExtractor
 /// By Gohur, Umair, Will
-/// Contains method headers for feature_extractor.cpp funtionality. 
+/// Extracts features of input images. These features include both
+/// cars and lane lines. Lane lines are detected using Hough Transform
+/// and are highlighted (traced) with a red line and filled in between. 
+/// Cars features are loaded. 
+/// Pre: Input images of cars and lane lines
+/// Post: Output of lane lines and cars with bound boxes.
 #ifndef FEATURE_DESCRIPTOR_H
 #define	FEATURE_DESCRIPTOR_H
 #define _USE_MATH_DEFINES

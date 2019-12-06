@@ -1,6 +1,10 @@
-/// inferencer header file
+/// Inferencer
 /// By Gohur, Umair, Will
-/// Contains method headers for inferencer.cpp funtionality. 
+/// Cars are detected by compairing image locations with our feature 
+/// representation of our car dataset. Cars that are detected will 
+/// have a bounding box placed around them. 
+/// Pre: Input images of cars and lane lines
+/// Post: image of cars with bound boxes.
 #ifndef INFERENCER_H
 #define INFERENCER_H
 #include <opencv2/opencv.hpp>

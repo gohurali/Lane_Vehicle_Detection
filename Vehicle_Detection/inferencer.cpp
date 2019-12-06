@@ -1,3 +1,10 @@
+/// Inferencer
+/// By Gohur, Umair, Will
+/// Cars are detected by compairing image locations with our feature 
+/// representation of our car dataset. Cars that are detected will 
+/// have a bounding box placed around them. 
+/// Pre: Input images of cars and lane lines
+/// Post: image of cars with bound boxes.
 #include "inferencer.h"
 
 /// <summary>

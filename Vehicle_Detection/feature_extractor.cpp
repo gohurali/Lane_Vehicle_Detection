@@ -228,8 +228,8 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_
 /// Performs a Hough Transform and obtains the lane lines
 /// A connection line is calculated to see the extent of the
 /// detection. Additionally, the lanes are extrapolated
-/// Pre: Input image and specified locations
-/// Post: Outputs the specified region of interest
+/// Preconditions: Input image and specified locations
+/// Postconditions: Outputs the specified region of interest
 /// </summary>
 cv::Mat FeatureExtractor::get_lanes(ConfigurationParameters& config, cv::Mat& input, cv::Mat& output, int l_threshold, int r_threshold) {
 	input.convertTo(input, CV_8UC1);
@@ -280,44 +280,10 @@ cv::Mat FeatureExtractor::get_lanes(ConfigurationParameters& config, cv::Mat& in
 	return output;
 }
 
-void FeatureExtractor::draw_lane_lines(cv::Mat& output, cv::Vec4i& min_points, cv::Point& adjusted_right_min, cv::Vec4i& top_line) {
-	cv::line(
-		output,
-		cv::Point(min_points[0], min_points[1]),
-		cv::Point(top_line[0], top_line[1]),
-		cv::Scalar(0, 255, 0),
-		2
-	);
-	cv::line(
-		output,
-		cv::Point(adjusted_right_min.x, adjusted_right_min.y),
-		cv::Point(top_line[2], top_line[3]),
-		cv::Scalar(0, 255, 0),
-		2
-	);
-}
-
-void FeatureExtractor::draw_lane_overlay(cv::Mat& output, cv::Vec4i& min_points, cv::Point& adjusted_right_min, cv::Vec4i& top_line) {
-	cv::Point corners[1][4];
-	corners[0][0] = cv::Point(min_points[0], min_points[1]);
-	corners[0][1] = cv::Point(adjusted_right_min.x, adjusted_right_min.y);
-	corners[0][2] = cv::Point(top_line[2], top_line[3]);
-	corners[0][3] = cv::Point(top_line[0], top_line[1]);
-
-	const cv::Point* corner_list[1] = { corners[0] };
-	int num_points = 4;
-	int num_polygons = 1;
-	cv::Mat overlay;
-	output.copyTo(overlay);
-	cv::fillPoly(overlay, corner_list, &num_points, num_polygons, cv::Scalar(0, 255, 0));
-	double alpha = 0.3;
-	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
-}
-
 /// <summary>
 /// Get's lane lines using Hough Transform
 /// Pre: Accepts image input and thresholds
-/// Post: Image with lines 
+/// Post: Image with lane lines that were detected with hough transform 
 /// </summary>
 /// <param name="input">Input image</param>
 /// <param name="output">output image</param>
@@ -373,10 +339,10 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output, int l_thres
 }
 
 /// <summary>
-/// get's lanes with predefined threshold param's
-/// 
-/// Post:
+/// gets lanes with predefined threshold params
 /// </summary>
+/// Preconditions:		input and output image should be given
+/// Postconditions:		img with detected lane lines displayed
 /// <param name="input"></param>
 /// <param name="output"></param>
 /// <returns></returns>
@@ -389,6 +355,7 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output) {
 	int minLineLength = 20;
 	int maxLineGap = 300;
 	cv::HoughLinesP(input, lines, rho, theta, threshold, minLineLength, maxLineGap);
+	// if no lanes were found then just return the output img
 	if (lines.size() == 0) {
 		return output;
 	}
@@ -427,6 +394,64 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output) {
 }
 
 /// <summary>
+/// Draws the right and left lanes based on the found lines
+/// </summary>
+/// Preconditions:	The highest and lowest points must have been found and the
+///					shorter lane should be extrapolated to take sure lane lines
+///					are equivalent
+/// Postconditions:	Lanes are draws on the output image
+/// <param name="output"></param>
+/// <param name="min_points"></param>
+/// <param name="adjusted_right_min"></param>
+/// <param name="top_line"></param>
+/// <returns></returns>
+void FeatureExtractor::draw_lane_lines(cv::Mat& output, cv::Vec4i& min_points, cv::Point& adjusted_right_min, cv::Vec4i& top_line) {
+	cv::line(
+		output,
+		cv::Point(min_points[0], min_points[1]),
+		cv::Point(top_line[0], top_line[1]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+	cv::line(
+		output,
+		cv::Point(adjusted_right_min.x, adjusted_right_min.y),
+		cv::Point(top_line[2], top_line[3]),
+		cv::Scalar(0, 255, 0),
+		2
+	);
+}
+
+/// <summary>
+/// Draws an overlay between the lane lines
+/// </summary>
+/// Preconditions:	The highest and lowest points must have been found and the
+///					shorter lane should be extrapolated to take sure lane lines
+///					are equivalent
+/// Postconditions:	An partially transparent overlay is drawn on the img
+/// <param name="output"></param>
+/// <param name="min_points"></param>
+/// <param name="adjusted_right_min"></param>
+/// <param name="top_line"></param>
+/// <returns></returns>
+void FeatureExtractor::draw_lane_overlay(cv::Mat& output, cv::Vec4i& min_points, cv::Point& adjusted_right_min, cv::Vec4i& top_line) {
+	cv::Point corners[1][4];
+	corners[0][0] = cv::Point(min_points[0], min_points[1]);
+	corners[0][1] = cv::Point(adjusted_right_min.x, adjusted_right_min.y);
+	corners[0][2] = cv::Point(top_line[2], top_line[3]);
+	corners[0][3] = cv::Point(top_line[0], top_line[1]);
+
+	const cv::Point* corner_list[1] = { corners[0] };
+	int num_points = 4;
+	int num_polygons = 1;
+	cv::Mat overlay;
+	output.copyTo(overlay);
+	cv::fillPoly(overlay, corner_list, &num_points, num_polygons, cv::Scalar(0, 255, 0));
+	double alpha = 0.3;
+	cv::addWeighted(overlay, alpha, output, 1 - alpha, 0, output);
+}
+
+/// <summary>
 /// extrapolate_line
 /// extends a linear function by a given y point
 /// Preconditions: A cv::Vec4 integer line and a y_pt
@@ -447,13 +472,17 @@ cv::Point FeatureExtractor::extrapolate_line(cv::Vec4i& line, int y_pt) {
 
 
 /// <summary>
-/// Finds the lowest point in our lane lines (Narrow down our outputs)
-/// Pre: Input with lane lines
-/// Post: Foud lowest point in lane lines
+/// find_lowest_point
+/// Preconditions:	Vector of 4 value vectors representing hough lines must be
+///					provided. This is pre-calculated in the get_lanes method.
+///					Addtionally, a middle_pt threshold must be provided to represent
+///					the location of the middle of the lane
+///	Postconditions:	Returns a 4 point vector containing the location of the lowest point
+///					of each of the lanes
 /// </summary>
 /// <param name="input"></param>
-/// <param name="l_threshold"></param>
-/// <param name="r_threshold"></param>
+/// <param name="middle_pt"></param>
+/// <param name="use_middle"></param>
 /// <returns></returns>
 cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int l_threshold, int r_threshold) {
 	cv::Mat lines(input);
@@ -494,13 +523,17 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 }
 
 /// <summary>
-/// Finds the highest point in our lane lines
-/// Pre: Uses lane lines to find the highest point
-/// Post Gihest point in a lane line
+/// find_highest_point
+/// Preconditions:	Vector of 4 value vectors representing hough lines must be
+///					provided. This is pre-calculated in the get_lanes method.
+///					Addtionally, a middle_pt threshold must be provided to represent
+///					the location of the middle of the lane
+///	Postconditions:	Returns a 4 point vector containing the location of the highest point
+///					of each of the lanes
 /// </summary>
 /// <param name="input"></param>
-/// <param name="l_threshold"></param>
-/// <param name="r_threshold"></param>
+/// <param name="middle_pt"></param>
+/// <param name="use_middle"></param>
 /// <returns></returns>
 cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, int l_threshold, int r_threshold) {
 	cv::Mat lines(input);
@@ -541,7 +574,13 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 }
 
 /// <summary>
-/// 
+/// find_lowest_point
+/// Preconditions:	Vector of 4 value vectors representing hough lines must be
+///					provided. This is pre-calculated in the get_lanes method.
+///					Addtionally, a middle_pt threshold must be provided to represent
+///					the location of the middle of the lane
+///	Postconditions:	Returns a 4 point vector containing the location of the lowest point
+///					of each of the lanes
 /// </summary>
 /// <param name="input"></param>
 /// <param name="middle_pt"></param>
@@ -551,29 +590,34 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
+		// Get the vector of 4 points that define a line
 		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
+		// create point obj for both ends of the line
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
 		points.push_back(x1y1);
 		points.push_back(x2y2);
 	}
 
+	// Set up 2 col matrix of points
 	cv::Mat points_matrix(points.size(), 2, CV_32S);;
 	for (int i = 0; i < points.size(); i++) {
 		points_matrix.at<int>(i, 0) = points[i].x;
 		points_matrix.at<int>(i, 1) = points[i].y;
 	}
-
+	// Set up initial lowest points for each lane
 	cv::Point l_min_pt(points_matrix.at<int>(0, 0), 0);
 	cv::Point r_min_pt(points_matrix.at<int>(1, 0), 0);
+	// loop thru the matrix of points until we find the highest
+	// y_pt on each side of the lane, recall that the higher the val, the lower in the img
+	// the middle is set by middle_pt which defines the middle of the lane
 	for (int i = 0; i < points_matrix.rows; i++) {
 		int x_pt = points_matrix.at<int>(i, 0);
 		int y_pt = points_matrix.at<int>(i, 1);
-
 		if (x_pt < middle_pt && y_pt > l_min_pt.y) {
 			l_min_pt = cv::Point(x_pt, y_pt);
 		}
-		else if (x_pt > middle_pt&& y_pt > r_min_pt.y) {
+		else if (x_pt > middle_pt && y_pt > r_min_pt.y) {
 			r_min_pt = cv::Point(x_pt, y_pt);
 		}
 	}
@@ -586,7 +630,13 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 }
 
 /// <summary>
-/// 
+/// find_highest_point
+/// Preconditions:	Vector of 4 value vectors representing hough lines must be
+///					provided. This is pre-calculated in the get_lanes method.
+///					Addtionally, a middle_pt threshold must be provided to represent
+///					the location of the middle of the lane
+///	Postconditions:	Returns a 4 point vector containing the location of the highest point
+///					of each of the lanes
 /// </summary>
 /// <param name="input"></param>
 /// <param name="middle_pt"></param>
@@ -596,25 +646,31 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	cv::Mat lines(input);
 	std::vector<cv::Point> points;
 	for (int i = 0; i < lines.rows; i++) {
+		// Get the vector of 4 points that define a line
 		cv::Vec4i pts = lines.at<cv::Vec4i>(i);
+		// create point obj for both ends of the line
 		cv::Point x1y1(pts[0], pts[1]);
 		cv::Point x2y2(pts[2], pts[3]);
 		points.push_back(x1y1);
 		points.push_back(x2y2);
 	}
 
+	// Set up 2 col matrix of points
 	cv::Mat points_matrix(points.size(), 2, CV_32S);;
 	for (int i = 0; i < points.size(); i++) {
 		points_matrix.at<int>(i, 0) = points[i].x;
 		points_matrix.at<int>(i, 1) = points[i].y;
 	}
-
+	
+	// Set up initial highest points for each lane
 	cv::Point l_max_pt(points_matrix.at<int>(0, 0), 10000);
 	cv::Point r_max_pt(points_matrix.at<int>(1, 0), 10000);
+	// loop thru the matrix of points until we find the lowest
+	// y_pt on each side of the lane, recall that the lower the val, the higher in the img
+	// the middle is set by middle_pt which defines the middle of the lane
 	for (int i = 0; i < points_matrix.rows; i++) {
 		int x_pt = points_matrix.at<int>(i, 0);
 		int y_pt = points_matrix.at<int>(i, 1);
-
 		if (x_pt < middle_pt && y_pt < l_max_pt.y) {
 			l_max_pt = cv::Point(x_pt, y_pt);
 		}
@@ -631,10 +687,16 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 }
 
 /// <summary>
+/// Lane Detect
+/// Wrapper funtion that performs various methods including
+/// white and yellow color detection, masking, ROI, and hough transform
 /// Config based lane detection
 /// lanes are detected based on the parameters
 /// specified in the config.h config file.
 /// </summary>
+/// Preconditions:		configuration object should be passed in along with the
+///						current image frame
+/// Postconditions:		RGB image with detected lanes
 cv::Mat FeatureExtractor::lane_detect(ConfigurationParameters& config, cv::Mat& input_frame) {
 	// Get RGB img
 	cv::Mat rgb_im = input_frame.clone();
@@ -652,6 +714,7 @@ cv::Mat FeatureExtractor::lane_detect(ConfigurationParameters& config, cv::Mat& 
 	);
 
 	if (config.remove_between_lanes) {
+		// Remove pixels that are within the lane lines
 		cv::Mat inner_mask = this->create_inner_cover_mask(roi_im, config.inner_roi);
 		roi_im.convertTo(roi_im, CV_8UC1);
 		inner_mask.convertTo(inner_mask, CV_8UC1);
@@ -662,44 +725,12 @@ cv::Mat FeatureExtractor::lane_detect(ConfigurationParameters& config, cv::Mat& 
 	return rgb_im;
 }
 
-
 /// <summary>
-/// 
+/// Wrapper funtion that performs various methods including
+/// white and yellow color detection, masking, ROI, and hough transform
 /// </summary>
-/// <param name="input_frame"></param>
-/// <param name="l_threshold"></param>
-/// <param name="r_threshold"></param>
-/// <param name="roi"></param>
-/// <param name="config"></param>
-/// <param name="remove_between_lanes"></param>
-/// <returns></returns>
-cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, int l_threshold, int r_threshold, std::vector<std::pair<float, float>>& roi, ConfigurationParameters& config, bool remove_between_lanes) {
-	// Get RGB img
-	cv::Mat rgb_im = input_frame.clone();
-	cv::Mat edges = this->extract_lane_colors(input_frame);
-
-	// From the edges, remove unnecessary edges
-	// propose a region of interest
-	cv::Mat roi_im = this->propose_roi(
-		edges,
-		roi,
-		false
-	);
-
-	if (remove_between_lanes) {
-		cv::Mat inner_mask = this->create_inner_cover_mask(roi_im, config.inner_roi);
-		roi_im.convertTo(roi_im, CV_8UC1);
-		inner_mask.convertTo(inner_mask, CV_8UC1);
-		roi_im = this->remove_middle_polygons(roi_im, inner_mask);
-	}
-
-	rgb_im = this->get_lanes(roi_im, rgb_im, l_threshold, r_threshold);
-	return rgb_im;
-}
-
-/// <summary>
-/// 
-/// </summary>
+/// Preconditions:		Current image frame and ROI of lanes should be determined and passed in
+/// Postconditions:		RGB image with detected lanes
 /// <param name="input_frame"></param>
 /// <param name="roi"></param>
 /// <returns></returns>
@@ -721,8 +752,11 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame, std::vector<std::pai
 }
 
 /// <summary>
-/// 
+/// Wrapper funtion that performs various methods including
+/// white and yellow color detection, masking, ROI, and hough transform
 /// </summary>
+/// Preconditions:		Current image frame should be passed in
+/// Postconditions:		RGB image with detected lanes
 /// <param name="input_frame"></param>
 /// <returns></returns>
 cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
@@ -744,7 +778,14 @@ cv::Mat FeatureExtractor::lane_detect(cv::Mat& input_frame) {
 	return rgb_im;
 }
 
-
+/// <summary>
+/// Wrapper funtion that performs various methods including
+/// white and yellow color detection, masking and edge detection
+/// </summary>
+/// Preconditions:		Current image frame should be passed in with config object
+/// Postconditions:		Image with edges containing lanes
+/// <param name="input_frame"></param>
+/// <returns></returns>
 cv::Mat FeatureExtractor::extract_lane_colors(ConfigurationParameters& config, cv::Mat& input_frame) {
 	cv::Mat hls_im;
 	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
@@ -772,6 +813,14 @@ cv::Mat FeatureExtractor::extract_lane_colors(ConfigurationParameters& config, c
 	return edges;
 }
 
+/// <summary>
+/// Wrapper funtion that performs various methods including
+/// white and yellow color detection, masking and edge detection
+/// </summary>
+/// Preconditions:		Current image frame should be passed in
+/// Postconditions:		Image with edges containing lanes
+/// <param name="input_frame"></param>
+/// <returns></returns>
 cv::Mat FeatureExtractor::extract_lane_colors(cv::Mat& input_frame) {
 	cv::Mat hls_im;
 	cv::cvtColor(input_frame, hls_im, cv::COLOR_BGR2HLS);
@@ -942,6 +991,12 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(ConfigurationParameters
 	return hog_ims;
 }
 
+/// <summary>
+/// split
+/// This function splits a string based on a specified delimiter
+/// Preconditions:	specify the string in question and the char delimiter 
+/// Postconditions:	returns a string vector of items parsed by the delimiter
+/// </summary>
 // https://stackoverflow.com/questions/9435385/split-a-string-using-c11/9437426
 std::vector<std::string> FeatureExtractor::split(const std::string& s, char delim) {
 	std::stringstream ss(s);
@@ -954,7 +1009,10 @@ std::vector<std::string> FeatureExtractor::split(const std::string& s, char deli
 }
 
 /// <summary>
-/// 
+/// get_name_num
+/// This function just gets the numeral name of the image
+/// Preconditions:		string directory path to the image is given
+/// Postconditions:		string number is returned
 /// </summary>
 /// <param name="file_loc"></param>
 /// <returns></returns>

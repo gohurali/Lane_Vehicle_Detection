@@ -1,8 +1,11 @@
 #include "trainer.h"
 
 /// <summary>
-/// Train support vector machine.
+/// Train support vector machine model for classification
+/// on x and y dataset
 /// </summary>
+/// Preconditions:		x and y data must be formatted as matrices and specified model_name
+/// Postconditions:		model is saved in the current project directory
 /// <param name="x_data"></param>
 /// <param name="y_data"></param>
 /// <param name="model_fname"></param>
@@ -17,9 +20,7 @@ void Trainer::train_svm(cv::Mat& x_data, cv::Mat& y_data, std::string model_fnam
 	svm_model->setNu(0.5);
 	svm_model->setP(0.1);
 	svm_model->setC(0.01);
-	svm_model->setType(cv::ml::SVM::EPS_SVR);
-	//svm_model->setType(cv::ml::SVM::C_SVC);
-	//svm_model->setType(cv::ml::SVM::ONE_CLASS);
+	svm_model->setType(cv::ml::SVM::C_SVC);
 	svm_model->setKernel(cv::ml::SVM::LINEAR);
 	svm_model->setTermCriteria(cv::TermCriteria(CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3));
 	svm_model->train(x_data, cv::ml::ROW_SAMPLE, y_data);
@@ -28,7 +29,13 @@ void Trainer::train_svm(cv::Mat& x_data, cv::Mat& y_data, std::string model_fnam
 }
 
 /// <summary>
-/// 
+/// train_test_svm
+/// Debug method where the split dataset is used
+/// model is then tested with the test set to see
+/// the model performance
+/// Preconditions:		The dataset must be split into train and test sets, additionally the user
+///						can specify if would like to serialize the model
+///	Postconditions:		Returns the model's performance and serializes the model if specified by user
 /// </summary>
 /// <param name="x_train"></param>
 /// <param name="y_train"></param>
@@ -36,9 +43,7 @@ void Trainer::train_svm(cv::Mat& x_data, cv::Mat& y_data, std::string model_fnam
 /// <param name="y_test"></param>
 /// <param name="save_model"></param>
 /// <param name="model_fname"></param>
-void Trainer::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_train,
-	const cv::Mat& x_test, const cv::Mat& y_test,
-	bool save_model, std::string model_fname) {
+void Trainer::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_train,const cv::Mat& x_test, const cv::Mat& y_test, bool save_model, std::string model_fname) {
 	printf(" -------- Training SVM ---------\n");
 	printf("x_train size = %i\n", x_train.rows);
 	printf("y_train size = %i\n", y_train.rows);
@@ -52,9 +57,7 @@ void Trainer::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_train,
 	svm_model->setNu(0.5);
 	svm_model->setP(0.1);
 	svm_model->setC(0.01);
-	svm_model->setType(cv::ml::SVM::EPS_SVR);
-	//svm_model->setType(cv::ml::SVM::C_SVC);
-	//svm_model->setType(cv::ml::SVM::ONE_CLASS);
+	svm_model->setType(cv::ml::SVM::C_SVC);
 	svm_model->setKernel(cv::ml::SVM::LINEAR);
 	svm_model->setTermCriteria(cv::TermCriteria(CV_TERMCRIT_ITER + CV_TERMCRIT_EPS, 1000, 1e-3));
 	svm_model->train(x_train, cv::ml::ROW_SAMPLE, y_train);
@@ -65,10 +68,6 @@ void Trainer::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_train,
 
 	cv::Mat predictions;
 	svm_model->predict(x_test, predictions);
-
-	//std::cout << predictions << std::endl;
-	//std::cout << "\n";
-	//std::cout << y_test << std::endl;
 
 	// Score the test
 	float correct = 0;
@@ -82,12 +81,13 @@ void Trainer::train_test_svm(const cv::Mat& x_train, const cv::Mat& y_train,
 		}
 	}
 	float score = correct / static_cast<float>(predictions.rows);
-	//std::cout << "SVM Test Accuracy = " << score << std::endl;
 	printf("SVM Test Accuracy = %f\n", score);
 }
 
 /// <summary>
-/// 
+/// train_test_split
+/// Preconditions:		x_data and y_data and a defined test set size are needed to be passed in
+/// Postconditions:		Pointer to TrainData dataset is returned to be able to get training and test data
 /// </summary>
 /// <param name="x_data"></param>
 /// <param name="y_data"></param>

@@ -67,7 +67,11 @@ std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> Inferencer::get_svm_detector
 
 /// <summary>
 /// Search for comparitable features, place bounding box, use Non max suppression to 
-/// limit the number of bounding boxes per car.
+/// limit the number of bounding boxes per vehicle.
+/// Preconditions:	The image to draw on, HOG loaded with SVM also needs to be
+///					loaded into memory, and ROI for sliding window needs to be
+///					defined.
+///	Postconditions: img with bboxes is returned
 /// </summary>
 /// <param name="img"></param>
 /// <param name="detector"></param>
@@ -84,14 +88,20 @@ cv::Mat Inferencer::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, st
 	cv::Mat cropped_im = img(roi_im);
 	std::vector<cv::Rect> found_locations;
 	std::vector<double> confidence;
-	detector.detectMultiScale(cropped_im, found_locations, confidence, 0.0, cv::Size(8, 8), cv::Size(0, 0), 1.2632, 2.0);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
-	std::vector<float> confidence2;
-	for (const double conf : confidence) {
-		confidence2.push_back(static_cast<float>(conf));
-	}
-	std::vector<int> keep_vec;
+	detector.detectMultiScale(
+		cropped_im, 
+		found_locations, 
+		confidence, 
+		0.0, 
+		cv::Size(8, 8), 
+		cv::Size(0, 0), 
+		1.2632, 
+		2.0
+	);
+	std::vector<float> confidence_probabilities(confidence.begin(), confidence.end());
+	std::vector<int> kept_boxes;
 	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
-	cv::dnn::NMSBoxes(found_locations, confidence2, 0.1f, 0.1f, keep_vec);//0.4f, 0.3f, keep_vec);
+	cv::dnn::NMSBoxes(found_locations, confidence_probabilities, 0.1f, 0.1f, kept_boxes);//0.4f, 0.3f, keep_vec);
 
 	if (include_all_bboxes) {
 		for (cv::Rect r : found_locations) {
@@ -99,7 +109,7 @@ cv::Mat Inferencer::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, st
 		}
 	}
 
-	for (const int idx : keep_vec) {
+	for (const int idx : kept_boxes) {
 		cv::Rect curr_rect = found_locations[idx];
 		cv::rectangle(cropped_im, curr_rect, cv::Scalar(0, 0, 255), 2);
 	}
@@ -288,6 +298,8 @@ std::vector<cv::Rect> Inferencer::vehicle_detect_bboxes(ConfigurationParameters&
 /// Since we only care about the top left x and y coordinates
 /// that is the only point that is converted. The rest of the bounding
 /// box is created via width and height information.
+/// Preconditions:		vector of bbox coords in space of the cropped img and ROI for the crop
+/// Postconditions:		Vector of re-scaled coordinates of bboxes relative to the original image
 /// </summary>
 /// <param name="bboxes"></param>
 /// <param name="roi"></param>
@@ -335,6 +347,8 @@ std::vector<cv::Rect> Inferencer::draw_bboxes(ConfigurationParameters& config, s
 /// Simple function that takes the number
 /// of detected cars (equivalent to the number of bboxes)
 /// and displays it on the screen.
+/// Preconditions:	img matrix to display text and bbox vector
+///	Postconditions:	img will show the number of vehicles in the current frame
 /// </summary>
 /// <param name="img"></param>
 /// <param name="bboxes"></param>

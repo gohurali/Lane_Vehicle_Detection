@@ -10,6 +10,7 @@ const struct ConfigurationParameters {
 	// ---------------------- Inference Data Location -------------------------
 	//"../datasets/test_data/singapore_snippet1/"; //"../datasets/udacity_challenge_video/challenge_2_frames/";
 	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_frames/";
+	std::string output_loc = "ld_vd_imgs/";
 
 	// ---------------------- Lane Detection Parameters ----------------------
 	int canny_thresh1 = 100;

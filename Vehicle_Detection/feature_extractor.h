@@ -61,14 +61,6 @@ public:
 		cv::Mat&, 
 		std::vector<std::pair<float, float>>&
 	);
-	cv::Mat lane_detect(
-		cv::Mat&,
-		int,
-		int,
-		std::vector<std::pair<float, float>>&,
-		ConfigurationParameters& config,
-		bool remove_between_lanes = (false)
-	);
 
 	cv::Mat extract_lane_colors(cv::Mat&);
 	cv::Mat extract_lane_colors(

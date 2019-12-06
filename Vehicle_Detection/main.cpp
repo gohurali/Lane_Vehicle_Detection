@@ -5,6 +5,10 @@
 void lane_vehicle_detect(ConfigurationParameters& config, FeatureExtractor& fe,Inferencer& inf);
 void train_model(ConfigurationParameters& config, FeatureExtractor& fe, Trainer& trainer);
 
+/// Main function
+/// Precondtions:	Ensure that the datasets are present in the specified locations in 
+///					the config.h file
+/// Postconditions:	Detection frame images will be placed on in the output directory
 int main() {
 	ConfigurationParameters config;
 	FeatureExtractor fe;
@@ -22,6 +26,9 @@ int main() {
 	return 0;
 }
 
+/// train_model
+/// Preconditions:		Provide config object, FeatureExtractor, and Trainer object
+/// Postconditions:		Serialized SVM will be placed in the current directory
 void train_model(ConfigurationParameters& config, FeatureExtractor& fe, Trainer& trainer) {
 	std::pair<std::vector<cv::Mat>, std::vector<int>> dataset = fe.load_dataset(
 		config.car_dataset_loc,
@@ -58,6 +65,10 @@ void train_model(ConfigurationParameters& config, FeatureExtractor& fe, Trainer&
 	}
 }
 
+/// lane_vehicle_detect
+/// Preconditions:		Config, FeatureExtractor, and Inferencer object should be passed in
+/// Postconditions:		Lane and Vehicle detection images will be placed in the output location
+///						as specified inthe config.h file
 void lane_vehicle_detect(ConfigurationParameters& config, FeatureExtractor& fe, Inferencer& inf) {
 	printf("---- Opening SVM Model ---\n");
 	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = inf.get_svm_detector(config.model_name, 1);
@@ -89,7 +100,7 @@ void lane_vehicle_detect(ConfigurationParameters& config, FeatureExtractor& fe, 
 
 		// Count number of detections
 		inf.display_num_vehicles(ld_out, adjusted_bboxes);
-		cv::imwrite("ld_vd_imgs/" + name_num + ".png", ld_out);
+		cv::imwrite(config.output_loc + name_num + ".png", ld_out);
 	}
 	printf("[LOG]: Dection done!\n");
 

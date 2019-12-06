@@ -1,3 +1,6 @@
+/// trainer header file
+/// By Gohur, Umair, Will
+/// Contains method headers for trainer.cpp funtionality. 
 #ifndef TRAINER_H
 #define TRAINER_H
 #define _USE_MATH_DEFINES

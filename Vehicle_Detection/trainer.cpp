@@ -1,3 +1,9 @@
+/// Trainer 
+/// By Gohur, Umair, Will
+/// Extracts features from dataset. Trains a support vectore 
+/// machine model for image classifcation and car detection
+/// Pre: Dataset of cars
+/// Post: SVM model of car features
 #include "trainer.h"
 
 /// <summary>

@@ -1,6 +1,9 @@
-/// trainer header file
+/// Trainer 
 /// By Gohur, Umair, Will
-/// Contains method headers for trainer.cpp funtionality. 
+/// Extracts features from dataset. Trains a support vectore 
+/// machine model for image classifcation and car detection
+/// Pre: Dataset of cars
+/// Post: SVM model of car features
 #ifndef TRAINER_H
 #define TRAINER_H
 #define _USE_MATH_DEFINES

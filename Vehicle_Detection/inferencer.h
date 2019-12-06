@@ -1,3 +1,6 @@
+/// inferencer header file
+/// By Gohur, Umair, Will
+/// Contains method headers for inferencer.cpp funtionality. 
 #ifndef INFERENCER_H
 #define INFERENCER_H
 #include <opencv2/opencv.hpp>

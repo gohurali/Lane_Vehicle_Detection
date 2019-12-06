@@ -1,3 +1,15 @@
+/// Main
+/// By Gohur, Umair, Will
+/// Drive file for vehicle and lane detection. 
+/// Vehicle detection is completed by training an SVM model from a 
+/// dataset of car images. 
+/// Lane detection utilizes the Hough Transform to identify lane 
+/// lines.
+/// Vehicles are identified with bounding boxes.
+/// Lane lines are highlighted and the region with in is shaded.
+/// Pre: Road image and dataset of cars
+/// Post: An image with cars and lane lines highlighted, as well as a 
+/// car count per frame displayed on the bottom of the image
 #include "feature_extractor.h"
 #include "trainer.h"
 #include "inferencer.h"

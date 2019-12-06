@@ -5,16 +5,13 @@
 #include <string>
 #include <math.h>
 const struct ConfigurationParameters {
-
 	int img_width = 672;
 	int img_height = 378;
-
 	// ---------------------- Inference Data Location -------------------------
 	//"../datasets/test_data/singapore_snippet1/"; //"../datasets/udacity_challenge_video/challenge_2_frames/";
 	std::string test_data_loc = "../datasets/udacity_challenge_video/challenge_frames/";
 
 	// ---------------------- Lane Detection Parameters ----------------------
-	
 	int canny_thresh1 = 100;
 	int canny_thresh2 = 190;
 	
@@ -46,6 +43,7 @@ const struct ConfigurationParameters {
 	// ---------- HOG + Support Vector Machine Training Parameters ------
 	int window_size = 64;
 	bool perform_test_svm = false;
+	int win_stride = 8;
 
 	// ---------------------- Vehicle Detection Parameters ----------------------
 	std::string model_name = "model_big.yaml";
@@ -61,7 +59,6 @@ const struct ConfigurationParameters {
 	float bbox_confidence_threshold = 0.1f;
 	float nms_threshold = 0.1f;
 	double scale_factor = 1.2632; // Recommended: 1.2632
-	int win_stride = 8;
-
+	
 };
 #endif

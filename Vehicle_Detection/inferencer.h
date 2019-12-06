@@ -24,6 +24,7 @@ public:
 	std::vector<float> get_svm_detector(std::string);
 	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> get_svm_detector(std::string, int);
 
+	
 	cv::Mat vehicle_detect(
 		cv::Mat&,
 		cv::HOGDescriptor&,

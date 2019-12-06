@@ -1,8 +1,14 @@
 #include "inferencer.h"
 
 /// <summary>
-/// 
+/// get_svm_detector
+/// Opens the support vector machine serialized file
+/// Preconditions:		The string location of the serialized model file
+/// Postconditions:		A pair including a pointer to the SVM model and 
+///						vector of float coefficients of the SVM model
 /// </summary>
+/// <param name="model_loc"></param>
+/// <returns></returns>
 // https://docs.opencv.org/3.4/d0/df8/samples_2cpp_2train_HOG_8cpp-example.html#a70
 std::vector<float> Inferencer::get_svm_detector(std::string model_loc) {
 	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::load(model_loc);
@@ -26,7 +32,11 @@ std::vector<float> Inferencer::get_svm_detector(std::string model_loc) {
 }
 
 /// <summary>
-/// 
+/// get_svm_detector
+/// Opens the support vector machine serialized file
+/// Preconditions:		The string location of the serialized model file
+/// Postconditions:		A pair including a pointer to the SVM model and 
+///						vector of float coefficients of the SVM model
 /// </summary>
 /// <param name="model_loc"></param>
 /// <param name="class_num"></param>
@@ -37,7 +47,6 @@ std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> Inferencer::get_svm_detector
 	//cv::Ptr<cv::ml::SVM> svm_model = cv::ml::StatModel::load<cv::ml::SVM>(model_loc);
 	cv::Mat support_vectors = svm_model->getSupportVectors();
 	const int sv_total = support_vectors.rows;
-	std::cout << "SV TOTAL = " << sv_total << std::endl;
 	cv::Mat alpha;
 	cv::Mat svidx;
 	alpha = cv::Mat::zeros(sv_total, sv_dim, CV_32F);
@@ -66,7 +75,12 @@ std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> Inferencer::get_svm_detector
 /// <param name="include_all_bboxes"></param>
 /// <returns></returns>
 cv::Mat Inferencer::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, std::vector<cv::Point>& roi, bool include_all_bboxes) {
-	cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
+	cv::Rect roi_im(
+		roi[0].x, 
+		roi[0].y, 
+		roi[1].x - roi[0].x, 
+		roi[2].y - roi[0].y
+	);
 	cv::Mat cropped_im = img(roi_im);
 	std::vector<cv::Rect> found_locations;
 	std::vector<double> confidence;
@@ -95,7 +109,13 @@ cv::Mat Inferencer::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, st
 }
 
 /// <summary>
-/// 
+/// vehicle_detect_bboxes
+/// Rather than drawing the bboxes, the vector of bboxes
+/// is returned.
+/// Preconditions:	The image to draw on, HOG loaded with SVM also needs to be
+///					loaded into memory, and ROI for sliding window needs to be
+///					defined.
+///	Postconditions: Vector of bboxes (cv::Rect) is returned
 /// </summary>
 /// <param name="img"></param>
 /// <param name="detector"></param>
@@ -103,10 +123,19 @@ cv::Mat Inferencer::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, st
 /// <param name="include_all_bboxes"></param>
 /// <returns></returns>
 std::vector<cv::Rect> Inferencer::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDescriptor& detector, std::vector<cv::Point>& roi, bool include_all_bboxes) {
-	cv::Rect roi_im(roi[0].x, roi[0].y, roi[1].x - roi[0].x, roi[2].y - roi[0].y);
+	// Define a rectangle that represents the detection ROI parameters
+	cv::Rect roi_im(
+		roi[0].x, 
+		roi[0].y, 
+		roi[1].x - roi[0].x, 
+		roi[2].y - roi[0].y
+	);
+	// We crop that img based on the ROI rectangle location
 	cv::Mat cropped_im = img(roi_im);
 	std::vector<cv::Rect> found_locations;
 	std::vector<double> confidence;
+	// Giving default parameters that work best
+	// on average
 	detector.detectMultiScale(
 		cropped_im,
 		found_locations,
@@ -116,14 +145,10 @@ std::vector<cv::Rect> Inferencer::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDes
 		cv::Size(0, 0),
 		1.2632,
 		2.0
-	);//cv::Size(10,10), cv::Size(0, 0), 1.2632, 2.0);
-	std::vector<float> confidence2;
-	for (const double conf : confidence) {
-		confidence2.push_back(static_cast<float>(conf));
-	}
-	std::vector<int> keep_vec;
-	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
-	cv::dnn::NMSBoxes(found_locations, confidence2, 0.1f, 0.1f, keep_vec);//0.4f, 0.3f, keep_vec);
+	);
+	std::vector<float> confidence_probabilities(confidence.begin(), confidence.end());
+	std::vector<int> kept_boxes;
+	cv::dnn::NMSBoxes(found_locations, confidence_probabilities, 0.1f, 0.1f, kept_boxes);
 
 	if (include_all_bboxes) {
 		for (cv::Rect r : found_locations) {
@@ -131,7 +156,7 @@ std::vector<cv::Rect> Inferencer::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDes
 		}
 	}
 	std::vector<cv::Rect> filtered_boxes;
-	for (const int idx : keep_vec) {
+	for (const int idx : kept_boxes) {
 		cv::Rect curr_rect = found_locations[idx];
 		filtered_boxes.push_back(curr_rect);
 	}
@@ -139,7 +164,13 @@ std::vector<cv::Rect> Inferencer::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDes
 }
 
 /// <summary>
-/// 
+/// vehicle_detect_bboxes
+/// Rather than drawing the bboxes, the vector of bboxes
+/// is returned.
+/// Preconditions:	The image to draw on, HOG loaded with SVM also needs to be
+///					loaded into memory, and ROI for sliding window needs to be
+///					defined.
+///	Postconditions: Vector of bboxes (cv::Rect) is returned
 /// </summary>
 /// <param name="img"></param>
 /// <param name="detector"></param>
@@ -187,6 +218,22 @@ std::vector<cv::Rect> Inferencer::vehicle_detect_bboxes(cv::Mat& img, cv::HOGDes
 	return filtered_boxes;
 }
 
+/// <summary>
+/// vehicle_detect_bboxes
+/// Rather than drawing the bboxes, the vector of bboxes
+/// is returned.
+/// Preconditions:	The image to draw on, HOG loaded with SVM also needs to be
+///					loaded into memory, and ROI for sliding window needs to be
+///					defined.
+///	Postconditions: Vector of bboxes (cv::Rect) is returned
+/// </summary>
+/// <param name="config"></param>
+/// <param name="img"></param>
+/// <param name="detector"></param>
+/// <param name="bbox_confidence_threshold"></param>
+/// <param name="nms_threshold"></param>
+/// <param name="include_all_bboxes"></param>
+/// <returns></returns>
 std::vector<cv::Rect> Inferencer::vehicle_detect_bboxes(ConfigurationParameters& config, cv::Mat& img, cv::HOGDescriptor& detector, bool include_all_bboxes) {
 	// Define a rectangle that represents the detection ROI parameters
 	cv::Rect roi_im(
@@ -255,6 +302,18 @@ std::vector<cv::Rect> Inferencer::respace(std::vector<cv::Rect>& bboxes, cv::Rec
 	return adjusted_bboxes;
 }
 
+/// <summary>
+/// draw_bboxes
+/// Given the vector of bboxes, the bboxes are drawn on
+/// the given image.
+/// Preconditions:		The given config object must be created
+///						and provided, vector of non-max suppressed bboxes
+///						and the img to draw the boxes on must all be provided
+///	Postconditions:		img with bboxes is returned
+/// </summary>
+/// <param name="bboxes"></param>
+/// <param name="roi"></param>
+/// <returns></returns>
 std::vector<cv::Rect> Inferencer::draw_bboxes(ConfigurationParameters& config, std::vector<cv::Rect>& bboxes, cv::Mat& img) {
 	// Since bboxes are in the cropped image space coordinates
 	// they need to be rescaled to the coordinates of the original image size
@@ -264,8 +323,8 @@ std::vector<cv::Rect> Inferencer::draw_bboxes(ConfigurationParameters& config, s
 		config.vd_roi[1].x - config.vd_roi[0].x,
 		config.vd_roi[2].y - config.vd_roi[0].y
 	);
+	// Getting the re-scaled bbox coords for the original img size
 	std::vector<cv::Rect> adjusted_bboxes = this->respace(bboxes, roi_im);
-
 	for (const cv::Rect& box : adjusted_bboxes) {
 		cv::rectangle(img, box, cv::Scalar(0, 0, 255), 2);
 	}

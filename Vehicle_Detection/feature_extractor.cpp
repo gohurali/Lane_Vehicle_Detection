@@ -427,7 +427,10 @@ cv::Mat FeatureExtractor::get_lanes(cv::Mat& input, cv::Mat& output) {
 }
 
 /// <summary>
-/// 
+/// extrapolate_line
+/// extends a linear function by a given y point
+/// Preconditions: A cv::Vec4 integer line and a y_pt
+/// Postconditions: Return the new point with the updated x_pt
 /// </summary>
 /// <param name="line"></param>
 /// <param name="y_pt"></param>
@@ -897,22 +900,24 @@ std::vector<cv::Mat> FeatureExtractor::load_images(std::string dataset_loc, bool
 }
 
 /// <summary>
-/// Feature Extractor. Calculates the histogram of gradients that will be used in
-/// evaluating images for car identification.
-/// Pre: Has dataset
-/// Post: Features for dataset found
+/// featurize_dataset
+/// Calculates the histogram of gradients that will be used 
+/// as features for the SVM model
+/// Preconditions:	Need to have the config struct passed in along with the
+///					dataset which is a vector of Mat images
+/// Postconditions:	Vector of HOG features for each image is returned
 /// </summary>
 /// <param name="dataset"></param>
 /// <param name="debug"></param>
 /// <returns></returns>
-std::vector<cv::Mat> FeatureExtractor::featurize_dataset(std::vector<cv::Mat>& dataset, bool debug) {
+std::vector<cv::Mat> FeatureExtractor::featurize_dataset(ConfigurationParameters& config, std::vector<cv::Mat>& dataset, bool debug) {
 	// HOG Params
-	cv::Size window_stride = { 8,8 };
+	cv::Size window_stride = { config.win_stride,config.win_stride };
 	cv::Size padding = { 0,0 };
 	std::vector<float> descriptors;
 	std::vector<cv::Point> location_pts;
 	cv::HOGDescriptor hog;
-	hog.winSize = cv::Size(64, 64);
+	hog.winSize = cv::Size(config.window_size, config.window_size);
 
 	std::vector<cv::Mat> hog_ims;
 	for (int i = 0; i < dataset.size(); i++) {
@@ -974,13 +979,15 @@ cv::Mat FeatureExtractor::normalize_dataset(cv::Mat& x_data) {
 	return norm_x_data;
 }
 
-
-
 /// <summary>
-/// 
+/// Converts the vector of matrices into a matrix of matrices
+/// Preconditions:	vector of matrix features and vector of labels must 
+///					be passed in
+/// Postconditions:	matrix of matrices of hog features is returned
 /// </summary>
 /// <param name="x_data"></param>
 /// <param name="y_data"></param>
+/// https://github.com/opencv/opencv/blob/master/samples/cpp/train_HOG.cpp
 /// <returns></returns>
 std::pair<cv::Mat, cv::Mat> FeatureExtractor::prepare_training_data(std::vector<cv::Mat>& x_data, std::vector<int>& y_data) {
 	// Convert x_data to mat
@@ -1006,58 +1013,6 @@ std::pair<cv::Mat, cv::Mat> FeatureExtractor::prepare_training_data(std::vector<
 	// convert y_data
 	std::pair<cv::Mat, cv::Mat> ret = { x_data_mat,cv::Mat(y_data) };
 	return ret;
-}
-
-
-
-/// <summary>
-/// Car detection ROI. Basically allows for a simpler computation by ignoring the 
-/// areas that are not important
-/// </summary>
-/// <param name="input">Image</param>
-/// <param name="top_l1">Coordinate</param>
-/// <param name="top_l2">Coordinate</param>
-/// <param name="top_r1">Coordinate</param>
-/// <param name="top_r2">Coordinate</param>
-/// <param name="bottom_l1">Coordinate</param>
-/// <param name="bottom_l2">Coordinate</param>
-/// <param name="bottom_r1">Coordinate</param>
-/// <param name="bottom_r2">Coordinate</param>
-/// <param name="debug"></param>
-/// <returns></returns>
-std::vector<cv::Point> FeatureExtractor::detection_roi(cv::Mat& input, double top_l1, double top_l2,
-	double top_r1, double top_r2,
-	double bottom_l1, double bottom_l2,
-	double bottom_r1, double bottom_r2, bool debug) {
-	//input.convertTo(input, CV_32FC1);
-	cv::Point top_left_pt;
-	top_left_pt.x = input.cols * top_l1;
-	top_left_pt.y = input.rows * top_l2;
-
-	cv::Point top_right_pt;
-	top_right_pt.x = input.cols * top_r1;
-	top_right_pt.y = input.rows * top_r2;
-
-	cv::Point bottom_left_pt;
-	bottom_left_pt.x = input.cols * bottom_l1;
-	bottom_left_pt.y = input.rows * bottom_l2;
-
-	cv::Point bottom_right_pt;
-	bottom_right_pt.x = input.cols * bottom_r1;
-	bottom_right_pt.y = input.rows * bottom_r2;
-
-	std::vector<cv::Point> roi = { top_left_pt ,top_right_pt,bottom_left_pt,bottom_right_pt };
-
-	if (debug) {
-		cv::Mat debug_im = input.clone();
-		cv::line(debug_im, top_left_pt, bottom_left_pt, cv::Scalar(0, 0, 255), 2);
-		cv::line(debug_im, top_right_pt, bottom_right_pt, cv::Scalar(0, 0, 255), 2);
-		cv::line(debug_im, top_left_pt, top_right_pt, cv::Scalar(0, 0, 255), 2);
-		cv::line(debug_im, bottom_left_pt, bottom_right_pt, cv::Scalar(0, 0, 255), 2);
-		this->show_image(debug_im, 1, 1, 5000);
-		cv::imwrite("roi_im.png", debug_im);
-	}
-	return roi;
 }
 
 /// <summary>

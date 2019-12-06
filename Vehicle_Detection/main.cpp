@@ -19,8 +19,6 @@ int main() {
 		printf("---- Inference on Model ----- \n");
 		lane_vehicle_detect(config, fe,inf);
 	}
-
-	
 	return 0;
 }
 
@@ -32,7 +30,7 @@ void train_model(ConfigurationParameters& config, FeatureExtractor& fe, Trainer&
 	);
 
 	// Obtain features -- HOG
-	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(dataset.first, false);
+	std::vector<cv::Mat> hog_ims = fe.featurize_dataset(config,dataset.first, false);
 
 	// Transform vector of matrices to matrix of matrices
 	std::pair<cv::Mat, cv::Mat> transformed_dataset = fe.prepare_training_data(hog_ims, dataset.second);

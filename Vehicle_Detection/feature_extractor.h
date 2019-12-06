@@ -50,15 +50,6 @@ public:
 		bool debug = (false)
 	);
 
-	std::vector<cv::Point> detection_roi(
-		cv::Mat&,
-		double, double,
-		double, double,
-		double, double,
-		double, double,
-		bool debug = (false)
-	);
-
 	cv::Mat lane_detect(
 		ConfigurationParameters& config,
 		cv::Mat&
@@ -132,7 +123,11 @@ public:
 	cv::Point extrapolate_line(cv::Vec4i&, int);
 	void show_image(cv::Mat&,int,int,int);
 
-	std::vector<cv::Mat> featurize_dataset(std::vector<cv::Mat>&,bool);
+	std::vector<cv::Mat> featurize_dataset(
+		ConfigurationParameters& config,
+		std::vector<cv::Mat>&,
+		bool
+	);
 
 	cv::Mat normalize_dataset(cv::Mat&);
 

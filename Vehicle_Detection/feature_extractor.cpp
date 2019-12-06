@@ -1,4 +1,11 @@
-/// FeatureExtractor 
+/// FeatureExtractor
+/// By Gohur, Umair, Will
+/// Extracts features of input images. These features include both
+/// cars and lane lines. Lane lines are detected using Hough Transform
+/// and are highlighted (traced) with a red line and filled in between. 
+/// Cars features are loaded. 
+/// Pre: Input images of cars and lane lines
+/// Post: Output of lane lines and cars with bound boxes.
 #include "feature_extractor.h"
 
 /// Creates a mask given lower and upper bound limitations
@@ -53,7 +60,7 @@ cv::Mat FeatureExtractor::remove_middle_polygons(cv::Mat& edge_im, cv::Mat& mask
 }
 
 /// <summary>
-/// 
+/// Creates inner cover mask
 /// </summary>
 /// <param name="input"></param>
 /// <param name="roi"></param>

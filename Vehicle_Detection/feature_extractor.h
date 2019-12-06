@@ -1,3 +1,6 @@
+/// feature extractor header file
+/// By Gohur, Umair, Will
+/// Contains method headers for feature_extractor.cpp funtionality. 
 #ifndef FEATURE_DESCRIPTOR_H
 #define	FEATURE_DESCRIPTOR_H
 #define _USE_MATH_DEFINES

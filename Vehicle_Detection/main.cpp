@@ -14,7 +14,15 @@
 #include "trainer.h"
 #include "inferencer.h"
 
+/// lane_vehicle_detect
+/// Preconditions:		Config, FeatureExtractor, and Inferencer object should be passed in
+/// Postconditions:		Lane and Vehicle detection images will be placed in the output location
+///						as specified inthe config.h file
 void lane_vehicle_detect(ConfigurationParameters& config, FeatureExtractor& fe,Inferencer& inf);
+
+/// train_model
+/// Preconditions:		Provide config object, FeatureExtractor, and Trainer object
+/// Postconditions:		Serialized SVM will be placed in the current directory
 void train_model(ConfigurationParameters& config, FeatureExtractor& fe, Trainer& trainer);
 
 /// Main function

@@ -40,8 +40,8 @@ void Trainer::train_svm(cv::Mat& x_data, cv::Mat& y_data, std::string model_fnam
 /// model is then tested with the test set to see
 /// the model performance
 /// Preconditions:		The dataset must be split into train and test sets, additionally the user
-///						can specify if would like to serialize the model
-///	Postconditions:		Returns the model's performance and serializes the model if specified by user
+///				can specify if would like to serialize the model
+/// Postconditions:		Returns the model's performance and serializes the model if specified by user
 /// </summary>
 /// <param name="x_train"></param>
 /// <param name="y_train"></param>

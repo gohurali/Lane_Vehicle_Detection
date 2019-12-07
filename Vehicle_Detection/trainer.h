@@ -44,7 +44,7 @@ public:
 	/// model is then tested with the test set to see
 	/// the model performance
 	/// Preconditions:		The dataset must be split into train and test sets, additionally the user
-	///						can specify if would like to serialize the model
+	///				can specify if would like to serialize the model
 	/// Postconditions:		Returns the model's performance and serializes the model if specified by user
 	void train_test_svm(
 		const cv::Mat&, const cv::Mat&,

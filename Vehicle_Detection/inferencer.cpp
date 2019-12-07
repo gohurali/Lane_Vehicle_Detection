@@ -23,7 +23,7 @@ std::vector<float> Inferencer::get_svm_detector(std::string model_loc) {
 	CV_Assert((alpha.type() == CV_64F && alpha.at<double>(0) == 1.) ||
 		(alpha.type() == CV_32F && alpha.at<float>(0) == 1.f));
 	CV_Assert(support_vectors.type() == CV_32F);
-	float sz = support_vectors.cols + 1;
+	int sz = support_vectors.cols + 1;
 	std::vector<float> hog_detector;
 	hog_detector.resize(sz);
 	memcpy(&hog_detector[0], support_vectors.ptr(), support_vectors.cols * sizeof(hog_detector[0]));
@@ -100,7 +100,6 @@ cv::Mat Inferencer::vehicle_detect(cv::Mat& img, cv::HOGDescriptor& detector, st
 	);
 	std::vector<float> confidence_probabilities(confidence.begin(), confidence.end());
 	std::vector<int> kept_boxes;
-	cv::dnn::dnn4_v20190902::MatShape kept_boxes;
 	cv::dnn::NMSBoxes(found_locations, confidence_probabilities, 0.1f, 0.1f, kept_boxes);//0.4f, 0.3f, keep_vec);
 
 	if (include_all_bboxes) {
@@ -353,7 +352,7 @@ std::vector<cv::Rect> Inferencer::draw_bboxes(ConfigurationParameters& config, s
 /// <param name="img"></param>
 /// <param name="bboxes"></param>
 void Inferencer::display_num_vehicles(cv::Mat& img, std::vector<cv::Rect>& bboxes) {
-	int num_bboxes = bboxes.size();
+	int num_bboxes = (int)bboxes.size();
 	std::string s_num_boxes = std::to_string(num_bboxes);
 	cv::putText(
 		img,

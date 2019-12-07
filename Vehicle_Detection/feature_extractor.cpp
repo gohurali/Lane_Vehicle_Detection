@@ -16,11 +16,9 @@ cv::Mat FeatureExtractor::mask_color(cv::Mat& img, std::vector<int>& lower_b, st
 	return mask;
 }
 
-/// combine_mask  creates a combined bit-wise disjunction of mask1 and mask2
-/// Pre:
+/// combine_mask  creates a combined bit-wise disjunction of mask1 and mask
 /// Mask1 a mat that is a mask
 /// Mask2 a mat that is a mask
-/// Post:
 /// combined is the bit-wise disjunction of mask1 and 2.
 cv::Mat FeatureExtractor::combine_mask(cv::Mat& mask1, cv::Mat& mask2) {
 	cv::Mat combined;
@@ -53,7 +51,8 @@ cv::Mat FeatureExtractor::remove_middle_polygons(cv::Mat& edge_im, cv::Mat& mask
 }
 
 /// <summary>
-/// 
+/// create_inner_cover_mask
+/// Creates inner ROI 
 /// </summary>
 /// <param name="input"></param>
 /// <param name="roi"></param>
@@ -63,20 +62,20 @@ cv::Mat FeatureExtractor::create_inner_cover_mask(cv::Mat& input, std::vector<st
 
 	// define ROI point locations via ROI of percentages of image dims
 	cv::Point top_left_pt;
-	top_left_pt.x = input.cols * roi[0].first;
-	top_left_pt.y = input.rows * roi[0].second;
+	top_left_pt.x = static_cast<int>(input.cols * roi[0].first);
+	top_left_pt.y = static_cast<int>(input.rows * roi[0].second);
 
 	cv::Point top_right_pt;
-	top_right_pt.x = input.cols * roi[1].first;
-	top_right_pt.y = input.rows * roi[1].second;
+	top_right_pt.x = static_cast<int>(input.cols * roi[1].first);
+	top_right_pt.y = static_cast<int>(input.rows * roi[1].second);
 
 	cv::Point bottom_left_pt;
-	bottom_left_pt.x = input.cols * roi[2].first;
-	bottom_left_pt.y = input.rows * roi[2].second;
+	bottom_left_pt.x = static_cast<int>(input.cols * roi[2].first);
+	bottom_left_pt.y = static_cast<int>(input.rows * roi[2].second);
 
 	cv::Point bottom_right_pt;
-	bottom_right_pt.x = input.cols * roi[3].first;
-	bottom_right_pt.y = input.rows * roi[3].second;
+	bottom_right_pt.x = static_cast<int>(input.cols * roi[3].first);
+	bottom_right_pt.y = static_cast<int>(input.rows * roi[3].second);
 
 	cv::Point corners[1][4];
 	corners[0][0] = bottom_left_pt;
@@ -117,20 +116,20 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, std::vector<std::pair<floa
 
 	// define ROI point locations via ROI of percentages of image dims
 	cv::Point top_left_pt;
-	top_left_pt.x = input.cols * roi[0].first;
-	top_left_pt.y = input.rows * roi[0].second;
+	top_left_pt.x = static_cast<int>(input.cols * roi[0].first);
+	top_left_pt.y = static_cast<int>(input.rows * roi[0].second);
 
 	cv::Point top_right_pt;
-	top_right_pt.x = input.cols * roi[1].first;
-	top_right_pt.y = input.rows * roi[1].second;
+	top_right_pt.x = static_cast<int>(input.cols * roi[1].first);
+	top_right_pt.y = static_cast<int>(input.rows * roi[1].second);
 
 	cv::Point bottom_left_pt;
-	bottom_left_pt.x = input.cols * roi[2].first;
-	bottom_left_pt.y = input.rows * roi[2].second;
+	bottom_left_pt.x = static_cast<int>(input.cols * roi[2].first);
+	bottom_left_pt.y = static_cast<int>(input.rows * roi[2].second);
 
 	cv::Point bottom_right_pt;
-	bottom_right_pt.x = input.cols * roi[3].first;
-	bottom_right_pt.y = input.rows * roi[3].second;
+	bottom_right_pt.x = static_cast<int>(input.cols * roi[3].first);
+	bottom_right_pt.y = static_cast<int>(input.rows * roi[3].second);
 
 	cv::Point corners[1][4];
 	corners[0][0] = bottom_left_pt;
@@ -182,20 +181,20 @@ cv::Mat FeatureExtractor::propose_roi(cv::Mat& input, double top_l1, double top_
 	input.convertTo(input, CV_64F);
 
 	cv::Point top_left_pt;
-	top_left_pt.x = input.cols * top_l1;
-	top_left_pt.y = input.rows * top_l2;
+	top_left_pt.x = static_cast<int>(input.cols * top_l1);
+	top_left_pt.y = static_cast<int>(input.rows * top_l2);
 
 	cv::Point top_right_pt;
-	top_right_pt.x = input.cols * top_r1;
-	top_right_pt.y = input.rows * top_r2;
+	top_right_pt.x = static_cast<int>(input.cols * top_r1);
+	top_right_pt.y = static_cast<int>(input.rows * top_r2);
 
 	cv::Point bottom_left_pt;
-	bottom_left_pt.x = input.cols * bottom_l1;
-	bottom_left_pt.y = input.rows * bottom_l2;
+	bottom_left_pt.x = static_cast<int>(input.cols * bottom_l1);
+	bottom_left_pt.y = static_cast<int>(input.rows * bottom_l2);
 
 	cv::Point bottom_right_pt;
-	bottom_right_pt.x = input.cols * bottom_r1;
-	bottom_right_pt.y = input.rows * bottom_r2;
+	bottom_right_pt.x = static_cast<int>(input.cols * bottom_r1);
+	bottom_right_pt.y = static_cast<int>(input.rows * bottom_r2);
 
 	cv::Point corners[1][4];
 	corners[0][0] = bottom_left_pt;
@@ -495,7 +494,7 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 		points.push_back(x2y2);
 	}
 
-	cv::Mat points_matrix(points.size(), 2, CV_32S);;
+	cv::Mat points_matrix(static_cast<int>(points.size()), 2, CV_32S);;
 	for (int i = 0; i < points.size(); i++) {
 		points_matrix.at<int>(i, 0) = points[i].x;
 		points_matrix.at<int>(i, 1) = points[i].y;
@@ -546,7 +545,7 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 		points.push_back(x2y2);
 	}
 
-	cv::Mat points_matrix(points.size(), 2, CV_32S);;
+	cv::Mat points_matrix(static_cast<int>(points.size()), 2, CV_32S);;
 	for (int i = 0; i < points.size(); i++) {
 		points_matrix.at<int>(i, 0) = points[i].x;
 		points_matrix.at<int>(i, 1) = points[i].y;
@@ -600,7 +599,7 @@ cv::Vec4i FeatureExtractor::find_lowest_point(std::vector<cv::Vec4i>& input, int
 	}
 
 	// Set up 2 col matrix of points
-	cv::Mat points_matrix(points.size(), 2, CV_32S);;
+	cv::Mat points_matrix(static_cast<int>(points.size()), 2, CV_32S);;
 	for (int i = 0; i < points.size(); i++) {
 		points_matrix.at<int>(i, 0) = points[i].x;
 		points_matrix.at<int>(i, 1) = points[i].y;
@@ -656,7 +655,7 @@ cv::Vec4i FeatureExtractor::find_highest_point(std::vector<cv::Vec4i>& input, in
 	}
 
 	// Set up 2 col matrix of points
-	cv::Mat points_matrix(points.size(), 2, CV_32S);;
+	cv::Mat points_matrix(static_cast<int>(points.size()), 2, CV_32S);;
 	for (int i = 0; i < points.size(); i++) {
 		points_matrix.at<int>(i, 0) = points[i].x;
 		points_matrix.at<int>(i, 1) = points[i].y;
@@ -977,7 +976,7 @@ std::vector<cv::Mat> FeatureExtractor::featurize_dataset(ConfigurationParameters
 
 		//Histogram of oriented gradients
 		hog.compute(gray_im, descriptors, window_stride, padding, location_pts);
-		int des_sz = descriptors.size();
+		int des_sz = static_cast<int>(descriptors.size());
 
 		cv::Mat out = cv::Mat(descriptors).clone();
 		hog_ims.push_back(out);
@@ -1049,7 +1048,7 @@ cv::Mat FeatureExtractor::normalize_dataset(cv::Mat& x_data) {
 /// <returns></returns>
 std::pair<cv::Mat, cv::Mat> FeatureExtractor::prepare_training_data(std::vector<cv::Mat>& x_data, std::vector<int>& y_data) {
 	// Convert x_data to mat
-	int rs = x_data.size();
+	int rs = static_cast<int>(x_data.size());
 	int cs = std::max(x_data[0].rows, x_data[0].cols);
 	cv::Mat x_data_mat(rs, cs, CV_32FC1);
 	printf("x_data shape = { r = %i , c = %i}\n", x_data_mat.rows, x_data_mat.cols);
@@ -1117,7 +1116,7 @@ std::vector<cv::Rect> FeatureExtractor::sliding_window(cv::Mat& img, cv::Size& w
 				}
 			}
 		}
-		cv::resize(temp, dest, cv::Size(temp.cols / scale, temp.rows / scale));
+		//cv::resize(temp, dest, cv::Size(temp.cols / scale, temp.rows / scale));
 		if (dest.rows <= window_size.height || dest.cols <= window_size.width) {
 			break;
 		}

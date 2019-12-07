@@ -1,5 +1,5 @@
 /// FeatureExtractor
-/// By Gohur, Umair, Will
+/// By Gohur Ali, Umair Qureshi, and Will Thomas
 /// Extracts features of input images. These features include both
 /// cars and lane lines. Lane lines are detected using Hough Transform
 /// and are highlighted (traced) with a red line and filled in between. 

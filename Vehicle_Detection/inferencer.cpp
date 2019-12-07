@@ -48,10 +48,9 @@ std::vector<float> Inferencer::get_svm_detector(std::string model_loc) {
 /// <param name="model_loc"></param>
 /// <param name="class_num"></param>
 /// <returns></returns>
-std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> Inferencer::get_svm_detector(std::string model_loc, int class_num) {
+std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> Inferencer::open_model(std::string model_loc) {
 	cv::Ptr<cv::ml::SVM> svm_model = cv::ml::SVM::load(model_loc);
 	int sv_dim = svm_model->getVarCount();
-	//cv::Ptr<cv::ml::SVM> svm_model = cv::ml::StatModel::load<cv::ml::SVM>(model_loc);
 	cv::Mat support_vectors = svm_model->getSupportVectors();
 	const int sv_total = support_vectors.rows;
 	cv::Mat alpha;
@@ -66,11 +65,10 @@ std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> Inferencer::get_svm_detector
 	for (int i = 0; i < sv_dim; i++) {
 		detector.push_back(resMat.at<float>(0, i));
 	}
-	detector.push_back(rho);
+	detector.push_back(static_cast<float>(rho));
 	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> res = { svm_model,detector };
 	return res;
 }
-
 
 /// <summary>
 /// Search for comparitable features, place bounding box, use Non max suppression to 

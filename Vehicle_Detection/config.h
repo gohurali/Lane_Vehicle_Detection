@@ -1,3 +1,8 @@
+/// ConfigurationParameters
+/// Author: Gohur Ali, Umair Qureshi, and Will Thomas
+/// This struct object contains fields that specifies
+/// file locations and changable parameters for various
+/// methods.
 #ifndef CONFIG_H
 #define CONFIG_H
 #define _USE_MATH_DEFINES
@@ -17,6 +22,9 @@ const struct ConfigurationParameters {
 	int canny_thresh2 = 190;
 	
 	int smoothing_kernel_size = 7;
+
+	// if set to true, inner_roi will be used to remove
+	// pixels between the lanes
 	bool remove_between_lanes = true;
 	int l_threshold = 350;
 	int r_threshold = 350;
@@ -45,6 +53,8 @@ const struct ConfigurationParameters {
 	int window_size = 64;
 	bool perform_test_svm = false;
 	int win_stride = 8;
+	int test_set_size = 1000;
+	bool save_tested_model = false;
 
 	// ---------------------- Vehicle Detection Parameters ----------------------
 	std::string model_name = "model_big.yaml";
@@ -60,6 +70,5 @@ const struct ConfigurationParameters {
 	float bbox_confidence_threshold = 0.1f;
 	float nms_threshold = 0.1f;
 	double scale_factor = 1.2632; // Recommended: 1.2632
-	
 };
 #endif

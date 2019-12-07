@@ -1,5 +1,5 @@
 /// FeatureExtractor
-/// By Gohur, Umair, Will
+/// By Gohur Ali, Umair Qureshi, and Will Thomas
 /// Extracts features of input images. These features include both
 /// cars and lane lines. Lane lines are detected using Hough Transform
 /// and are highlighted (traced) with a red line and filled in between. 
@@ -235,7 +235,7 @@ public:
 	/// Postconditions: Return the new point with the updated x_pt
 	cv::Point extrapolate_line(cv::Vec4i&, int);
 	
-	/// Displays the new image
+	/// Displays an image matrix
 	/// Preconditions: 	Image that has gone through lane detection
 	/// Postconditions: 	Image is displayed
 	void show_image(cv::Mat&,int,int,int);
@@ -305,9 +305,7 @@ public:
 	std::string get_name_num(std::string&);
 	
 private:
-	
 	/// Loads images
 	std::vector<cv::Mat> load_images(std::string,bool,int num_imgs = (200));
 };
-
 #endif

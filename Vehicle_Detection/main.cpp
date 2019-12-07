@@ -1,10 +1,10 @@
 /// Main
-/// By Gohur, Umair, Will
-/// Drive file for vehicle and lane detection. 
-/// Vehicle detection is completed by training an SVM model from a 
+/// By Gohur Ali, Umair Qureshi, and Will Thomas
+/// Driver file for vehicle and lane detection. 
+/// Vehicle Detection is completed by training an SVM model from a 
 /// dataset of car images. 
 /// Lane detection utilizes the Hough Transform to identify lane 
-/// lines.
+/// lines
 /// Vehicles are identified with bounding boxes.
 /// Lane lines are highlighted and the region with in is shaded.
 /// Pre: Road image and dataset of cars
@@ -71,13 +71,13 @@ void train_model(ConfigurationParameters& config, FeatureExtractor& fe, Trainer&
 		cv::Ptr<cv::ml::TrainData> dataset = trainer.train_test_split(
 			norm_x_data,
 			transformed_dataset.second,
-			1000
+			config.test_set_size
 		);
 		// Train & Test SVM
 		trainer.train_test_svm(
 			dataset->getTrainSamples(), dataset->getTrainResponses(),
 			dataset->getTestSamples(), dataset->getTestResponses(),
-			false
+			config.save_tested_model
 		);
 	}
 	else {
@@ -91,12 +91,13 @@ void train_model(ConfigurationParameters& config, FeatureExtractor& fe, Trainer&
 ///						as specified inthe config.h file
 void lane_vehicle_detect(ConfigurationParameters& config, FeatureExtractor& fe, Inferencer& inf) {
 	printf("---- Opening SVM Model ---\n");
-	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = inf.get_svm_detector(config.model_name, 1);
+	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> svm_items = inf.open_model(config.model_name);
 	cv::HOGDescriptor hog;
 	hog.winSize = cv::Size(config.window_size, config.window_size);
 	hog.setSVMDetector(svm_items.second);
 	printf("---- Model opened ----\n");
 
+	// Iterating through the location where the video image frames are located
 	for (const auto& entry : std::filesystem::directory_iterator(config.test_data_loc)) {
 		std::string current_im_loc = entry.path().string();
 		std::cout << current_im_loc << std::endl;

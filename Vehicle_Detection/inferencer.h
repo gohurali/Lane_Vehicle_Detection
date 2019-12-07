@@ -1,5 +1,5 @@
 /// Inferencer
-/// By Gohur, Umair, Will
+/// By Gohur Ali, Umair Qureshi, and Will Thomas
 /// Cars are detected by compairing image locations with our feature 
 /// representation of our car dataset. Cars that are detected will 
 /// have a bounding box placed around them. 
@@ -41,7 +41,7 @@ public:
 	/// Preconditions:		The string location of the serialized model file
 	/// Postconditions:		A pair including a pointer to the SVM model and 
 	///				vector of float coefficients of the SVM model
-	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> get_svm_detector(std::string, int);
+	std::pair<cv::Ptr<cv::ml::SVM>, std::vector<float>> open_model(std::string);
 
 	/// Search for comparitable features, place bounding box, use Non max suppression to 
 	/// limit the number of bounding boxes per vehicle.

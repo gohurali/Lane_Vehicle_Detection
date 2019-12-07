@@ -56,8 +56,5 @@ public:
 	/// Preconditions:		x_data and y_data and a defined test set size are needed to be passed in
 	/// Postconditions:		Pointer to TrainData dataset is returned to be able to get training and test data
 	cv::Ptr<cv::ml::TrainData> train_test_split(cv::Mat&, cv::Mat&, int);
-
-	
 };
-
 #endif // !TRAINER_H
